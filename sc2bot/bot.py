@@ -9,6 +9,7 @@ from sc2.player import Bot, Computer
 from sc2bot.managers.army.simple_army_manager import SimpleArmyManager
 from sc2bot.managers.building.simple_building_manager import SimpleBuildingManager
 from sc2bot.managers.production.simple_production_manager import SimpleProductionManager
+from sc2bot.managers.production.MLP_production_manager import MLPProductionManager
 from sc2bot.managers.scouting.simple_scouting_manager import SimpleScoutingManager
 from sc2bot.managers.assault_manager.simple_assault_manager import SimpleAssaultManager
 from sc2bot.managers.worker.simple_worker_manager import SimpleWorkerManager
@@ -23,7 +24,7 @@ class TerranBot(sc2.BotAI):
         self.army_manager = SimpleArmyManager(self)
         self.assault_manager = SimpleAssaultManager(self, self.army_manager, self.worker_manager)
         self.building_manager = SimpleBuildingManager(self)
-        self.production_manager = SimpleProductionManager(self, self.worker_manager, self.building_manager)
+        self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager)
         self.scouting_manager = SimpleScoutingManager(self, self.worker_manager, self.building_manager)
 
     async def on_step(self, iteration):
