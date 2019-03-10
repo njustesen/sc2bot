@@ -24,7 +24,7 @@ class TerranBot(sc2.BotAI):
         self.army_manager = SimpleArmyManager(self)
         self.assault_manager = SimpleAssaultManager(self, self.army_manager, self.worker_manager)
         self.building_manager = SimpleBuildingManager(self)
-        self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager)
+        self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, None)
         self.scouting_manager = SimpleScoutingManager(self, self.worker_manager, self.building_manager)
 
     async def on_step(self, iteration):

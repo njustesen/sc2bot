@@ -13,18 +13,26 @@ class MLPProductionManager(ProductionManager):
     '''
     def __init__(self, bot, worker_manager, building_manager, model):
         super().__init__(bot, worker_manager, building_manager)
+        # load all the column names and the data.
         self.model = model
+        self.game_info = bot.game_info
     
     def prepare_input(self):
         state = self.bot.state
+
+        print(self.game_info)
+
         observation = state.observation
-        state_doc = {}
-        state_doc["supply"] = observation.player_common.food_used
-        print(observation.player_common.supply)
+
+        row = {}
+        row["frame_id"] = observation.game_loop
+
+        # state_doc["supply"] = observation.player_common.food_used
+        # print(observation.player_common.supply)
 
     async def run(self):
-        x = self.prepare_input()
-        action = self.model.evaluate(x)
+        # x = self.prepare_input()
+        # action = self.model.evaluate(x)
 
         if self.bot.supply_left < 2:
             await self.worker_manager.build(UnitTypeId.SUPPLYDEPOT)
