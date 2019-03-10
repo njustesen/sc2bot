@@ -53,7 +53,7 @@ def main():
     sc2.run_game(sc2.maps.get("(2)CatalystLE"), [
         Bot(Race.Terran, TerranBot()),
         Computer(Race.Zerg, Difficulty.VeryHard)
-    ], realtime=False)
+    ], realtime=True)
 
 
 if __name__ == '__main__':
