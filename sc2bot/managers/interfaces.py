@@ -6,6 +6,22 @@ class Manager:
     async def run(self):
         raise NotImplementedError("Must be overridden by subclass")
 
+    async def on_unit_destroyed(self, unit_tag):
+        """ Override this in your bot class. """
+        pass
+
+    async def on_unit_created(self, unit):
+        """ Override this in your bot class. """
+        pass
+
+    async def on_building_construction_started(self, unit):
+        """ Override this in your bot class. """
+        pass
+
+    async def on_building_construction_complete(self, unit):
+        """ Override this in your bot class. """
+        pass
+
 
 class ProductionManager(Manager):
 

@@ -14,11 +14,11 @@ class SimpleProductionManager(ProductionManager):
         if self.bot.supply_left < 2:
             await self.worker_manager.build(UnitTypeId.SUPPLYDEPOT)
         elif random.random() > 0.75:
-            print("ProductionManager: train SCV.")
+            #print("ProductionManager: train SCV.")
             await self.building_manager.train(UnitTypeId.SCV)
         elif len(self.bot.units(UnitTypeId.BARRACKS)) == 0:
-            print("ProductionManager: build Barracks.")
+            #print("ProductionManager: build Barracks.")
             await self.worker_manager.build(UnitTypeId.BARRACKS)
         else:
-            print("ProductionManager: train Marine.")
+            #print("ProductionManager: train Marine.")
             await self.building_manager.train(UnitTypeId.MARINE)
