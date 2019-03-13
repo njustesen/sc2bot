@@ -9,5 +9,5 @@ class SimpleScoutingManager(ScoutingManager):
     async def run(self):
         if self.bot.known_enemy_structures.amount == 0:
             target = self.bot.known_enemy_structures.random_or(self.bot.enemy_start_locations[0]).position
-            print("ScoutingManager: scouting ", target)
+            #print("ScoutingManager: scouting ", target)
             await self.worker_manager.scout(target)

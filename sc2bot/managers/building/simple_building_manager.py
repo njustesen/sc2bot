@@ -10,7 +10,8 @@ class SimpleBuildingManager(BuildingManager):
         super().__init__(bot)
         self.trained_at = {
             UnitTypeId.SCV: UnitTypeId.COMMANDCENTER,
-            UnitTypeId.MARINE: UnitTypeId.BARRACKS
+            UnitTypeId.MARINE: UnitTypeId.BARRACKS,
+            UnitTypeId.MARAUDER: UnitTypeId.BARRACKS
         }
         self.add_on_at = {
             UnitTypeId.BARRACKSTECHLAB: UnitTypeId.BARRACKS,
@@ -25,11 +26,11 @@ class SimpleBuildingManager(BuildingManager):
         pass
 
     async def train(self, unit):
-        print("BuildingManager: training ", unit)
-        for rax in self.bot.units(self.trained_at[unit]).ready.noqueue:
+        # print("BuildingManager: training ", unit)
+        for building in self.bot.units(self.trained_at[unit]).ready.noqueue:
             if not self.bot.can_afford(unit):
                 break
-            await self.bot.do(rax.train(unit))
+            await self.bot.do(building.train(unit))
 
     async def add_on(self, add_on):
         for rax in self.bot.units(self.add_on_at[add_on]).ready:

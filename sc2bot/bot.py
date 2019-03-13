@@ -3,6 +3,7 @@
 A modular StarCraft II bot.
 """
 
+import math
 import sc2
 from sc2 import Race, Difficulty
 from sc2.player import Bot, Computer
@@ -35,7 +36,7 @@ class TerranBot(sc2.BotAI):
         :param iteration:
         :return:
         '''
-        self.iteration = iteration
+        self.iteration += 1
         #print("-- Production Manager")
         await self.production_manager.run()
         #print("-- Scouting Manager")
@@ -52,7 +53,40 @@ class TerranBot(sc2.BotAI):
     def game_data(self):
         return self._game_data
 
+    async def get_next_expansion(self):
+        """Find next expansion location."""
+
+        closest = None
+        distance = math.inf
+        for el in self.expansion_locations:
+            def is_near_to_expansion(t):
+                return t.position.distance_to(el) < self.EXPANSION_GAP_THRESHOLD
+
+            if any(map(is_near_to_expansion, self.townhalls)):
+                # already taken
+                continue
+
+            startp = self._game_info.player_start_location
+            d = startp.distance_to(el)
+            if d is None:
+                continue
+
+            if d < distance:
+                distance = d
+                closest = el
+
+        return closest
+
     async def on_unit_destroyed(self, unit_tag):
+        if unit_tag in self._game_data.units.keys():
+            print(self._game_data.units[unit_tag].type_id)
+        elif unit_tag in self.known_enemy_units:
+            print(self.known_enemy_units[unit_tag].type_id)
+        elif unit_tag in self.known_enemy_structures:
+            print(self.known_enemy_structures[unit_tag].type_id)
+        else:
+            print("Unknown unit destroyed")
+
         for manager in self.managers:
             await manager.on_unit_destroyed(unit_tag)
 
