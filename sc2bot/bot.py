@@ -11,6 +11,7 @@ from sc2bot.managers.army.simple_army_manager import SimpleArmyManager
 from sc2bot.managers.army.advanced_army_manager import AdvancedArmyManager
 from sc2bot.managers.building.simple_building_manager import SimpleBuildingManager
 from sc2bot.managers.production.simple_production_manager import SimpleProductionManager
+from sc2bot.managers.production.MLP_production_manager import MLPProductionManager
 from sc2bot.managers.scouting.simple_scouting_manager import SimpleScoutingManager
 from sc2bot.managers.assault_manager.simple_assault_manager import SimpleAssaultManager
 from sc2bot.managers.assault_manager.value_based_assault_manager import ValueBasedAssaultManager
@@ -26,7 +27,7 @@ class TerranBot(sc2.BotAI):
         self.army_manager = AdvancedArmyManager(self)
         self.assault_manager = ValueBasedAssaultManager(self, self.army_manager, self.worker_manager)
         self.building_manager = SimpleBuildingManager(self)
-        self.production_manager = SimpleProductionManager(self, self.worker_manager, self.building_manager)
+        self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, None)
         self.scouting_manager = SimpleScoutingManager(self, self.worker_manager, self.building_manager)
         self.managers = [self.scouting_manager, self.production_manager, self.building_manager, self.assault_manager, self.army_manager, self.worker_manager]
 
@@ -108,7 +109,7 @@ def main():
     sc2.run_game(sc2.maps.get("(2)CatalystLE"), [
         Bot(Race.Terran, TerranBot()),
         Computer(Race.Zerg, Difficulty.VeryHard)
-    ], realtime=False)
+    ], realtime=True)
 
 
 if __name__ == '__main__':
