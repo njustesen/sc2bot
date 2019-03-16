@@ -4,6 +4,8 @@ from sc2bot.managers.interfaces import WorkerManager
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.upgrade_id import UpgradeId
+from sc2.position import Point2, Point3
+from random import randint
 
 
 class SimpleWorkerManager(WorkerManager):
@@ -11,60 +13,100 @@ class SimpleWorkerManager(WorkerManager):
     def __init__(self, bot):
         super().__init__(bot)
         self.scouting_worker = None
-        self.combinedActions = []
+        self.scouting_location = None
+        self.last_scouting_location = None
 
     async def run(self):
-        for idle_worker in self.bot.workers.idle:
-            mf = self.bot.state.mineral_field.closest_to(idle_worker)
-            await self.bot.do(idle_worker.gather(mf))
+
+        if self.bot.iteration % 20 == 0:
+            for idle_worker in self.bot.workers.idle:
+                if self.scouting_worker is None or self.scouting_worker.tag != idle_worker.tag:
+                    mf = self.bot.state.mineral_field.closest_to(idle_worker)
+                    self.actions.append(idle_worker.gather(mf))
+
+        if self.scouting_worker is not None:
+            for unit in self.bot.known_enemy_units.not_structure:
+                if unit.distance_to(self.scouting_worker) < unit.ground_range * 1.2:
+                    self.actions.append(self.scouting_worker.move(self.bot.start_location))
+                    return
+                elif self.scouting_worker.is_idle or self.scouting_worker.is_collecting:
+                    print("Distance:", self.scouting_worker.distance_to(self.last_scouting_location))
+                    if self.scouting_worker.distance_to(self.last_scouting_location) < 200:
+                        print("Finding new scouting point, old=", self.last_scouting_location)
+                        self.last_scouting_location = self.scouting_location.random_on_distance(randint(10, 30))
+                        print("New=", self.last_scouting_location)
+                    self.actions.append(self.scouting_worker.move(self.last_scouting_location))
+
+        # await self.bot.do_actions(self.combinedActions)
+        # self.combinedActions = []
 
     async def distribute(self):
-         await self.bot.distribute_workers()
+        await self.bot.distribute_workers()
 
     async def build(self, building, location=None):
         #print("WorkerManager: building ", building)
-        w = self._get_worker()
-        placement_steps = 3 if building == UnitTypeId.SUPPLYDEPOT else 10
+        w = self._get_builder()
+        placement_steps = 2 if building == UnitTypeId.SUPPLYDEPOT else 4
         if w:  # if worker found
+            assert self.scouting_worker is None or w.tag != self.scouting_worker.tag
             if location is None:
                 if building == UnitTypeId.COMMANDCENTER:
                     # loc = await self.bot.find_placement(building, w.position, placement_step=3)
                     loc = await self.bot.get_next_expansion()
                 else:
-                    loc = await self.bot.find_placement(building, w.position, placement_step=placement_steps)
+                    # Wall-in
+                    depots = self.bot.units(UnitTypeId.SUPPLYDEPOT) | self.bot.units(UnitTypeId.SUPPLYDEPOTLOWERED)
+                    placement_positions = []
+                    if building == UnitTypeId.SUPPLYDEPOT:
+                        placement_positions = self.bot.main_base_ramp.corner_depots
+                        if depots:
+                            placement_positions = {d for d in placement_positions if
+                                                         depots.closest_distance_to(d) > 1}
+                    elif building == UnitTypeId.BARRACKS and self.bot.units(UnitTypeId.BARRACKS).amount + self.bot.already_pending(UnitTypeId.BARRACKS) == 0:
+                        placement_positions = [self.bot.main_base_ramp.barracks_correct_placement]
+
+                    if len(placement_positions) == 0:
+                        loc = await self.bot.find_placement(building, w.position, placement_step=placement_steps)
+                    else:
+                        loc = placement_positions.pop()
             else:
                 loc = location
             if loc:  # if a placement location was found
                 # build exactly on that location
-                await self.bot.do(w.build(building, loc))
+                self.actions.append(w.build(building, loc))
 
     async def scout(self, location):
         if self.scouting_worker is None:
-            w = self._get_worker()
+            self.scouting_location = location
+            self.last_scouting_location = location
+            w = self._get_builder()
             if w:  # if worker found
                 #print("WorkerManager: scouting ", location)
                 self.scouting_worker = w
-                await self.bot.do(w.move(location))
+                self.actions.append(w.move(location))
 
     async def rush(self, location):
         for w in self.bot.workers:
-            await self.bot.do(w.attack(location))
+            self.actions.append(w.attack(location))
 
     async def defend(self, location):
         for w in self.bot.workers:
-            await self.bot.do(w.attack(location))
+            self.actions.append(w.attack(location))
 
-    def _get_worker(self):
+    def _get_builder(self):
         ws = self.bot.workers.gathering
         if ws:  # if workers found
-            return ws.furthest_to(ws.center)
+            if self.scouting_worker in ws:
+                ws.remove(self.scouting_worker)
+            if ws.amount > 0:
+                return ws.furthest_to(ws.center)
         return None
 
     async def on_building_construction_complete(self, unit):
         if unit.type_id in [UnitTypeId.COMMANDCENTER, UnitTypeId.REFINERY]:
-            await self.distribute_workers()
+            self.distribute_workers()
 
-    async def distribute_workers(self, performanceHeavy=True, onlySaturateGas=False):
+    def distribute_workers(self, performanceHeavy=True, onlySaturateGas=False):
         # expansion_locations = self.expansion_locations
         # owned_expansions = self.owned_expansions
 
@@ -141,9 +183,9 @@ class SimpleWorkerManager(WorkerManager):
                 if workerPool.amount > 0:
                     w = workerPool.pop()
                     if len(w.orders) == 1 and w.orders[0].ability.id in [AbilityId.HARVEST_RETURN]:
-                        self.combinedActions.append(w.gather(gInfo["unit"], queue=True))
+                        self.actions.append(w.gather(gInfo["unit"], queue=True))
                     else:
-                        self.combinedActions.append(w.gather(gInfo["unit"]))
+                        self.actions.append(w.gather(gInfo["unit"]))
 
         if not onlySaturateGas:
             # if we now have left over workers, make them mine at bases with deficit in mineral workers
@@ -156,6 +198,10 @@ class SimpleWorkerManager(WorkerManager):
                         w = workerPool.pop()
                         mf = self.bot.state.mineral_field.closer_than(10, thInfo["unit"]).closest_to(w)
                         if len(w.orders) == 1 and w.orders[0].ability.id in [AbilityId.HARVEST_RETURN]:
-                            self.combinedActions.append(w.gather(mf, queue=True))
+                            self.actions.append(w.gather(mf, queue=True))
                         else:
-                            self.combinedActions.append(w.gather(mf))
+                            self.actions.append(w.gather(mf))
+
+    async def on_unit_destroyed(self, unit_tag):
+        if self.scouting_worker is not None and self.scouting_worker.tag == unit_tag:
+            self.scouting_worker = None

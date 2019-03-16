@@ -10,6 +10,7 @@ class SimpleProductionManager(ProductionManager):
     def __init__(self, bot, worker_manager, building_manager):
         super().__init__(bot, worker_manager, building_manager)
         self.next_iteration = 0
+        print("Production manager ready")
 
     async def run(self):
         '''
@@ -39,4 +40,4 @@ class SimpleProductionManager(ProductionManager):
                 self.next_iteration += 50
                 await self.worker_manager.build(UnitTypeId.COMMANDCENTER)
             else:
-                self.next_iteration += 10
+                self.next_iteration += 1

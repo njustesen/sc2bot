@@ -5,7 +5,8 @@ setup(name='sc2bot',
       include_package_data=True,
       install_requires=[
           'numpy',
-          'sc2'
+          'sc2',
+          'sklearn'
       ],
       packages=find_packages()
 )

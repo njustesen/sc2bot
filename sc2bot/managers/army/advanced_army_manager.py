@@ -12,23 +12,23 @@ class AdvancedArmyManager(ArmyManager):
 
     async def run(self):
 
-        if self.bot.iteration % 2 == 0:
-            # Create squads
-            for squad in self.squads:
-                units = []
-                if squad.unit_types is None:
-                    for unit in self.bot.units.not_structure:
-                        if unit.type_id not in [UnitTypeId.SCV, UnitTypeId.MULE]:
-                            units.append(unit)
-                else:
-                    for unit in self.bot.units:
-                        if unit.type_id in squad.unit_types:
-                                units.append(unit)
-                squad.units = Units(units, self.bot.game_data())
 
-            # Control squads:
-            for squad in self.squads:
-                await squad.run()
+        # Create squads
+        for squad in self.squads:
+            units = []
+            if squad.unit_types is None:
+                for unit in self.bot.units.not_structure:
+                    if unit.type_id not in [UnitTypeId.SCV, UnitTypeId.MULE]:
+                        units.append(unit)
+            else:
+                for unit in self.bot.units:
+                    if unit.type_id in squad.unit_types:
+                            units.append(unit)
+            squad.units = Units(units, self.bot.game_data())
+
+        # Control squads:
+        for squad in self.squads:
+            await squad.run()
 
     async def attack(self, target, unit_types=None):
         squad = Squad(self.bot, target, unit_types, order="attack")

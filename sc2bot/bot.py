@@ -11,10 +11,11 @@ from sc2bot.managers.army.simple_army_manager import SimpleArmyManager
 from sc2bot.managers.army.advanced_army_manager import AdvancedArmyManager
 from sc2bot.managers.building.simple_building_manager import SimpleBuildingManager
 from sc2bot.managers.production.simple_production_manager import SimpleProductionManager
-from sc2bot.managers.production.MLP_production_manager import MLPProductionManager
+from sc2bot.managers.production.mlp_production_manager import MLPProductionManager
+from sc2bot.managers.production.mlp_model import Net
 from sc2bot.managers.scouting.simple_scouting_manager import SimpleScoutingManager
-from sc2bot.managers.assault_manager.simple_assault_manager import SimpleAssaultManager
-from sc2bot.managers.assault_manager.value_based_assault_manager import ValueBasedAssaultManager
+from sc2bot.managers.assault.simple_assault_manager import SimpleAssaultManager
+from sc2bot.managers.assault.value_based_assault_manager import ValueBasedAssaultManager
 from sc2bot.managers.worker.simple_worker_manager import SimpleWorkerManager
 
 
@@ -27,9 +28,12 @@ class TerranBot(sc2.BotAI):
         self.army_manager = AdvancedArmyManager(self)
         self.assault_manager = ValueBasedAssaultManager(self, self.army_manager, self.worker_manager)
         self.building_manager = SimpleBuildingManager(self)
-        self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, None)
+        # self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "3x128_no_features_state_dict")
+        self.production_manager = SimpleProductionManager(self, self.worker_manager, self.building_manager)
         self.scouting_manager = SimpleScoutingManager(self, self.worker_manager, self.building_manager)
         self.managers = [self.scouting_manager, self.production_manager, self.building_manager, self.assault_manager, self.army_manager, self.worker_manager]
+        self.enemy_units = {}
+        print("Bot is ready")
 
     async def on_step(self, iteration):
         '''
@@ -37,19 +41,25 @@ class TerranBot(sc2.BotAI):
         :param iteration:
         :return:
         '''
+
+        # print("Step: ", self.state.observation.game_loop)
+
+        for unit in self.known_enemy_units | self.known_enemy_structures:
+            self.enemy_units[unit.tag] = unit
+
         self.iteration += 1
         #print("-- Production Manager")
-        await self.production_manager.run()
+        await self.production_manager.execute()
         #print("-- Scouting Manager")
-        await self.scouting_manager.run()
+        await self.scouting_manager.execute()
         #print("-- Assault Manager")
-        await self.assault_manager.run()
+        await self.assault_manager.execute()
         #print("-- Army Manager")
-        await self.army_manager.run()
+        await self.army_manager.execute()
         #print("-- Worker Manager")
-        await self.worker_manager.run()
+        await self.worker_manager.execute()
         #print("-- Building Manager")
-        await self.building_manager.run()
+        await self.building_manager.execute()
 
     def game_data(self):
         return self._game_data
@@ -79,15 +89,9 @@ class TerranBot(sc2.BotAI):
         return closest
 
     async def on_unit_destroyed(self, unit_tag):
-        if unit_tag in self._game_data.units.keys():
-            print(self._game_data.units[unit_tag].type_id)
-        elif unit_tag in self.known_enemy_units:
-            print(self.known_enemy_units[unit_tag].type_id)
-        elif unit_tag in self.known_enemy_structures:
-            print(self.known_enemy_structures[unit_tag].type_id)
-        else:
-            print("Unknown unit destroyed")
-
+        if unit_tag in self.enemy_units.keys():
+            print(self.enemy_units[unit_tag].type_id, " killed!")
+            del self.enemy_units[unit_tag]
         for manager in self.managers:
             await manager.on_unit_destroyed(unit_tag)
 
@@ -108,8 +112,8 @@ def main():
     # Multiple difficulties for enemy bots available https://github.com/Blizzard/s2client-api/blob/ce2b3c5ac5d0c85ede96cef38ee7ee55714eeb2f/include/sc2api/sc2_gametypes.h#L30
     sc2.run_game(sc2.maps.get("(2)CatalystLE"), [
         Bot(Race.Terran, TerranBot()),
-        Computer(Race.Zerg, Difficulty.VeryHard)
-    ], realtime=True)
+        Computer(Race.Zerg, Difficulty.Hard)
+    ], realtime=False)
 
 
 if __name__ == '__main__':

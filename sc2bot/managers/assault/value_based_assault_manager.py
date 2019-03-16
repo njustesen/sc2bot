@@ -1,5 +1,6 @@
 from sc2bot.managers.interfaces import AssaultManager
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.units import Units
 
 
 class ValueBasedAssaultManager(AssaultManager):
@@ -19,7 +20,12 @@ class ValueBasedAssaultManager(AssaultManager):
 
             # Should attack
             own_ground_to_ground, own_ground_to_air, own_air_to_air, own_air_to_ground = self.army_value(self.bot.units())
-            opp_ground_to_ground, opp_ground_to_air, opp_air_to_air, opp_air_to_ground = self.army_value(self.bot.known_enemy_units(), include_buildings=True)
+            opp_ground_to_ground, opp_ground_to_air, opp_air_to_air, opp_air_to_ground = self.army_value(Units(self.bot.enemy_units.values(), self.bot.game_data()), include_buildings=True)
+
+            own_ground_to_ground = own_ground_to_ground * 0.9
+            own_ground_to_air = own_ground_to_air * 0.9
+            own_air_to_air = own_air_to_air * 0.9
+            own_air_to_ground = own_air_to_ground * 0.9
 
             #print("Own army value: ", own_ground_to_ground + own_ground_to_air + own_air_to_air + own_air_to_ground)
             #print("Opp army value: ", opp_ground_to_ground + opp_ground_to_air + opp_air_to_air + opp_air_to_ground)

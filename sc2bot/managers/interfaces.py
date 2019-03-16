@@ -2,24 +2,34 @@ class Manager:
 
     def __init__(self, bot):
         self.bot = bot
+        self.actions = []
+
+    async def execute(self):
+        if len(self.actions) > 0:
+            actions = [action for action in self.actions]
+            self.actions = []
+            await self.bot.do_actions(actions)
+        else:
+            await self.run()
 
     async def run(self):
-        raise NotImplementedError("Must be overridden by subclass")
+        """ Override this in your manager class. """
+        pass
 
     async def on_unit_destroyed(self, unit_tag):
-        """ Override this in your bot class. """
+        """ Override this in your manager class. """
         pass
 
     async def on_unit_created(self, unit):
-        """ Override this in your bot class. """
+        """ Override this in your manager class. """
         pass
 
     async def on_building_construction_started(self, unit):
-        """ Override this in your bot class. """
+        """ Override this in your manager class. """
         pass
 
     async def on_building_construction_complete(self, unit):
-        """ Override this in your bot class. """
+        """ Override this in your manager class. """
         pass
 
 
@@ -95,6 +105,12 @@ class BuildingManager(Manager):
         raise NotImplementedError("Must be overridden by subclass")
 
     async def research(self, upgrade):
+        raise NotImplementedError("Must be overridden by subclass")
+
+    async def upgrade(self, upgrade):
+        raise NotImplementedError("Must be overridden by subclass")
+
+    async def calldown_mule(self):
         raise NotImplementedError("Must be overridden by subclass")
 
 
