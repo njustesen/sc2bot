@@ -135,7 +135,14 @@ class SimpleBuildingManager(BuildingManager):
             mfs = self.bot.state.mineral_field.closer_than(10, oc)
             if mfs:
                 mf = max(mfs, key=lambda x: x.mineral_contents)
-                self.bot.actions.append(oc(AbilityId.CALLDOWNMULE_CALLDOWNMULE, mf))
+                self.actions.append(oc(AbilityId.CALLDOWNMULE_CALLDOWNMULE, mf))
+                return
+
+    async def scan(self, location):
+        for oc in self.bot.units(UnitTypeId.ORBITALCOMMAND).filter(lambda x: x.energy >= 50):
+            mfs = self.bot.state.mineral_field.closer_than(10, oc)
+            if mfs:
+                self.actions.append(oc(AbilityId.SCANNERSWEEP_SCAN, location))
                 return
 
     async def upgrade(self, upgrade):
@@ -149,3 +156,24 @@ class SimpleBuildingManager(BuildingManager):
             for cc in self.bot.units(UnitTypeId.COMMANDCENTER).idle:  # .idle filters idle command centers
                 self.actions.append(cc(ability))
                 return
+
+    def can_train(self, unit_type):
+        if self.bot.can_afford(unit_type):
+            for building in self.bot.units(self.trained_at[unit_type]).ready.noqueue:
+                if unit_type in self.add_on_requirement:
+                    for add_on in self.bot.units(self.add_on_requirement[unit_type]).ready:
+                        if add_on.tag == building.add_on_tag:
+                            return True
+                else:
+                    return True
+        return False
+
+    def can_upgrade(self, upgrade_type):
+        ability = None
+        if upgrade_type == UnitTypeId.ORBITALCOMMAND:
+            ability = AbilityId.UPGRADETOORBITAL_ORBITALCOMMAND
+        elif upgrade_type == UnitTypeId.PLANETARYFORTRESS:
+            ability = AbilityId.UPGRADETOPLANETARYFORTRESS_PLANETARYFORTRESS
+        if ability is not None and self.bot.can_afford(upgrade_type):  # check if orbital is affordable
+            return self.bot.units(UnitTypeId.COMMANDCENTER).idle.exists
+        return False

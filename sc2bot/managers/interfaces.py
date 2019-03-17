@@ -89,6 +89,9 @@ class WorkerManager(Manager):
     async def defend(self, location):
         raise NotImplementedError("Must be overridden by subclass")
 
+    def is_building(self, building_type):
+        raise NotImplementedError("Must be overridden by subclass")
+
 
 class BuildingManager(Manager):
 
@@ -112,6 +115,16 @@ class BuildingManager(Manager):
 
     async def calldown_mule(self):
         raise NotImplementedError("Must be overridden by subclass")
+
+    async def scan(self, location):
+        raise NotImplementedError("Must be overridden by subclass")
+
+    def can_train(self, unit_type):
+        raise NotImplementedError("Must be overridden by subclass")
+
+    def can_upgrade(self, upgrade_type):
+        raise NotImplementedError("Must be overridden by subclass")
+
 
 
 class ArmyManager(Manager):

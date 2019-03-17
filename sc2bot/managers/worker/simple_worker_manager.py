@@ -8,6 +8,17 @@ from sc2.position import Point2, Point3
 from random import randint
 
 
+class BuildJob:
+
+    def __init__(self, worker, building_type, location):
+        self.worker = worker
+        self.building_type = building_type
+        self.location = location
+        self.under_construction = False
+        self.building = None
+        self.done = False
+
+
 class SimpleWorkerManager(WorkerManager):
 
     def __init__(self, bot):
@@ -15,6 +26,7 @@ class SimpleWorkerManager(WorkerManager):
         self.scouting_worker = None
         self.scouting_location = None
         self.last_scouting_location = None
+        self.build_jobs = []
 
     async def run(self):
 
@@ -30,12 +42,37 @@ class SimpleWorkerManager(WorkerManager):
                     self.actions.append(self.scouting_worker.move(self.bot.start_location))
                     return
                 elif self.scouting_worker.is_idle or self.scouting_worker.is_collecting:
-                    print("Distance:", self.scouting_worker.distance_to(self.last_scouting_location))
                     if self.scouting_worker.distance_to(self.last_scouting_location) < 200:
-                        print("Finding new scouting point, old=", self.last_scouting_location)
                         self.last_scouting_location = self.scouting_location.random_on_distance(randint(10, 30))
-                        print("New=", self.last_scouting_location)
                     self.actions.append(self.scouting_worker.move(self.last_scouting_location))
+
+        for build_job in self.build_jobs:
+
+            # Job cancelled or completed
+            if build_job.done:
+                minerals = self.bot.state.units.mineral_field.closest_to(self.bot.start_location)
+                self.actions.append(build_job.worker.gather(minerals))
+                continue
+
+            # Worker died
+            if build_job.worker is None:
+                build_job.worker = self._get_builder()
+                if build_job.worker is not None:
+                    if build_job.under_construction:
+                        self.actions.append(build_job.worker.repair(build_job.location))
+                    else:
+                        self.actions.append(build_job.worker.build(build_job.building_type, build_job.location))
+                continue
+
+            # Move or build with worker
+            if not build_job.under_construction:
+                if self.bot.can_afford(build_job.building_type):
+                    self.actions.append(build_job.worker.build(build_job.building_type, build_job.location))
+                else:
+                    self.actions.append(build_job.worker.move(build_job.location))
+                continue
+
+        self.build_jobs = [build_job for build_job in self.build_jobs if not build_job.done]
 
         # await self.bot.do_actions(self.combinedActions)
         # self.combinedActions = []
@@ -44,6 +81,20 @@ class SimpleWorkerManager(WorkerManager):
         await self.bot.distribute_workers()
 
     async def build(self, building, location=None):
+
+        # Remove all un-started build jobs
+        add_new = True
+        for build_job in self.build_jobs:
+            if not build_job.under_construction:
+                if build_job.building_type != building:
+                    build_job.done = True
+                else:
+                    if location is not None:
+                        build_job.location = location
+                    add_new = False
+        if not add_new:
+            return
+
         #print("WorkerManager: building ", building)
         w = self._get_builder()
         placement_steps = 2 if building == UnitTypeId.SUPPLYDEPOT else 4
@@ -53,6 +104,8 @@ class SimpleWorkerManager(WorkerManager):
                 if building == UnitTypeId.COMMANDCENTER:
                     # loc = await self.bot.find_placement(building, w.position, placement_step=3)
                     loc = await self.bot.get_next_expansion()
+                elif building == UnitTypeId.REFINERY:
+                    loc = self.get_next_geyser()
                 else:
                     # Wall-in
                     depots = self.bot.units(UnitTypeId.SUPPLYDEPOT) | self.bot.units(UnitTypeId.SUPPLYDEPOTLOWERED)
@@ -73,7 +126,16 @@ class SimpleWorkerManager(WorkerManager):
                 loc = location
             if loc:  # if a placement location was found
                 # build exactly on that location
-                self.actions.append(w.build(building, loc))
+                self.build_jobs.append(BuildJob(w, building, loc))
+
+    def get_next_geyser(self):
+        for th in self.bot.townhalls:
+            vgs = self.bot.state.vespene_geyser.closer_than(20, th)
+            for vg in vgs:
+                if self.bot.units(UnitTypeId.REFINERY).closer_than(1.0, vg).exists:
+                    break
+                return vg
+        return None
 
     async def scout(self, location):
         if self.scouting_worker is None:
@@ -101,10 +163,6 @@ class SimpleWorkerManager(WorkerManager):
             if ws.amount > 0:
                 return ws.furthest_to(ws.center)
         return None
-
-    async def on_building_construction_complete(self, unit):
-        if unit.type_id in [UnitTypeId.COMMANDCENTER, UnitTypeId.REFINERY]:
-            self.distribute_workers()
 
     def distribute_workers(self, performanceHeavy=True, onlySaturateGas=False):
         # expansion_locations = self.expansion_locations
@@ -202,6 +260,34 @@ class SimpleWorkerManager(WorkerManager):
                         else:
                             self.actions.append(w.gather(mf))
 
+    def is_building(self, building_type):
+        for build_job in self.build_jobs:
+            if building_type == build_job.building_type:
+                return True
+        return False
+
+    async def on_building_construction_started(self, building):
+        for build_job in self.build_jobs:
+            if building.type_id == build_job.building_type:
+                build_job.under_construction = True
+                build_job.building = building
+
+    async def on_building_construction_complete(self, building):
+        if building.type_id in [UnitTypeId.COMMANDCENTER, UnitTypeId.REFINERY]:
+            self.distribute_workers()
+        for build_job in self.build_jobs:
+            if build_job.building is not None and building.tag == build_job.building.tag:
+                build_job.under_construction = False
+                build_job.done = True
+
     async def on_unit_destroyed(self, unit_tag):
         if self.scouting_worker is not None and self.scouting_worker.tag == unit_tag:
             self.scouting_worker = None
+        for build_job in self.build_jobs:
+            if build_job.worker is not None and build_job.worker.tag == unit_tag:
+                build_job.worker = None
+                return
+            if build_job.building is not None and build_job.building.tag == unit_tag:
+                build_job.building = None
+                build_job.done = True
+                return

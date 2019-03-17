@@ -25,7 +25,7 @@ class MLPProductionManager(ProductionManager):
         self.columns_maxes = json.load(open("data/all_columns_maxes.json"))
 
         # scalers = joblib.load("../data/scalers.json")
-
+        print("Loading model")
         inputs = len(self.input_columns)
         hidden_nodes = 128
         hidden_layers = 3
@@ -33,10 +33,17 @@ class MLPProductionManager(ProductionManager):
         self.model = Net(inputs, hidden_nodes, hidden_layers, outputs)
         self.model.load_state_dict(torch.load(f"models/{model_name}.pt"))
         self.model.eval()
+        print("Model ready")
         self.action_decoder = {v: k for k, v in self.action_dict.items()}
         self.seen_enemy_units_max = {}
         # self.game_info = bot.game_info
         self.research_abilities = {}
+
+        self.num_buildings = 0
+        self.num_enemy_units = 0
+        self.train_action = None
+        self.upgrade_action = None
+        self.refresh = True
     
     def prepare_input(self):
 
@@ -161,13 +168,48 @@ class MLPProductionManager(ProductionManager):
 
     async def run(self):
 
-        if len(self.research_abilities):
+        if len(self.research_abilities) == 0:
             print("Initializing abilities")
             for upgrade_type in UpgradeId:
                 ability = self.bot.game_data().upgrades[upgrade_type.value].research_ability
                 if ability is None:
                     continue
                 self.research_abilities[ability.id] = upgrade_type
+
+        num_buildings = self.bot.units.structure.amount
+        num_enemy_units = len(self.bot.enemy_units)
+        required = self.bot.game_data().units[self.train_action.value]._proto.food_required if self.train_action is not None else 0
+        supply_blocked = self.bot.supply_left - required < 0
+
+        if supply_blocked and self.train_action and not (self.worker_manager.is_building(UnitTypeId.SUPPLYDEPOT) or self.worker_manager.is_building(UnitTypeId.COMMANDCENTER)):
+            self.refresh = True
+
+        # Change plans if something changed
+        if self.refresh or num_buildings != self.num_buildings:
+            self.num_enemy_units = num_enemy_units
+            self.num_buildings = num_buildings
+            self.train_action = None
+            self.upgrade_action = None
+        elif self.train_action is not None:  # If train action is planned
+            if self.bot.can_afford(self.train_action) and self.building_manager.can_train(self.train_action):
+                unit_type = self.train_action
+                self.train_action = None
+                self.refresh = True
+                print(f"ProductionManager: can now affort {unit_type}.")
+                await self.building_manager.train(unit_type)
+            return
+        elif self.upgrade_action is not None:  # If train action is planned
+            if self.bot.can_afford(self.upgrade_action) and self.building_manager.can_upgrade(self.upgrade_action):
+                upgrade_action = self.upgrade_action
+                self.upgrade_action = None
+                self.refresh = True
+                print(f"ProductionManager: can now affort {upgrade_action}.")
+                await self.building_manager.upgrade(upgrade_action)
+            return
+        else:
+            return
+
+        self.refresh = False
 
         x = self.prepare_input()
         x = np.array([x])
@@ -184,21 +226,30 @@ class MLPProductionManager(ProductionManager):
         if action_type == "train":
             print(f"ProductionManager: train {build_name}.")
             unit_type = UnitTypeId[build_name.upper()]
-            await self.building_manager.train(unit_type)
+            if self.bot.can_afford(unit_type) and self.building_manager.can_train(unit_type):
+                self.refresh = True
+                print(f"ProductionManager: can affort {build_name}.")
+                await self.building_manager.train(unit_type)
+            else:
+                print(f"ProductionManager: cannot affort {build_name}.")
+                self.train_action = unit_type
         elif action_type == "build":
             print(f"ProductionManager: build {build_name}.")
             unit_type = UnitTypeId[build_name.upper()]
             await self.worker_manager.build(unit_type)
         elif action_type == "research":
-            print("ProductionManager: research {build_name}.")
+            print(f"ProductionManager: research {build_name}.")
             upgrade_type = UpgradeId[build_name.upper()]
             await self.building_manager.research(upgrade_type)
         elif action_type == "upgrade":
-            print("ProductionManager: upgrade {build_name}.")
+            print(f"ProductionManager: upgrade {build_name}.")
             upgrade_type = UnitTypeId[build_name.upper()]
-            await self.building_manager.upgrade(upgrade_type)
+            if self.building_manager.can_upgrade(upgrade_type):
+                await self.building_manager.upgrade(upgrade_type)
+            else:
+                self.upgrade_action = upgrade_type
         elif action_type == "addon":
-            print("ProductionManager: upgrade {build_name}.")
+            print(f"ProductionManager: add on {build_name}.")
             unit_type = UnitTypeId[build_name.upper()]
             await self.building_manager.add_on(unit_type)
         elif action_type == "calldown":

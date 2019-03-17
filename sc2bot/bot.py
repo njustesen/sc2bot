@@ -42,23 +42,23 @@ class TerranBot(sc2.BotAI):
         :return:
         '''
 
-        # print("Step: ", self.state.observation.game_loop)
+        #print("Step: ", self.state.observation.game_loop)
 
         for unit in self.known_enemy_units | self.known_enemy_structures:
             self.enemy_units[unit.tag] = unit
 
         self.iteration += 1
-        #print("-- Production Manager")
+        # print("-- Production Manager")
         await self.production_manager.execute()
-        #print("-- Scouting Manager")
+        # print("-- Scouting Manager")
         await self.scouting_manager.execute()
-        #print("-- Assault Manager")
+        # print("-- Assault Manager")
         await self.assault_manager.execute()
-        #print("-- Army Manager")
+        # print("-- Army Manager")
         await self.army_manager.execute()
-        #print("-- Worker Manager")
+        # print("-- Worker Manager")
         await self.worker_manager.execute()
-        #print("-- Building Manager")
+        # print("-- Building Manager")
         await self.building_manager.execute()
 
     def game_data(self):
@@ -113,7 +113,7 @@ def main():
     sc2.run_game(sc2.maps.get("(2)CatalystLE"), [
         Bot(Race.Terran, TerranBot()),
         Computer(Race.Zerg, Difficulty.Hard)
-    ], realtime=False)
+    ], realtime=True)
 
 
 if __name__ == '__main__':

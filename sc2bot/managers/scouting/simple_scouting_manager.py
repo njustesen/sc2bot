@@ -1,4 +1,6 @@
 from sc2bot.managers.interfaces import ScoutingManager
+from sc2.ids.unit_typeid import UnitTypeId
+from sc2.ids.ability_id import AbilityId
 
 
 class SimpleScoutingManager(ScoutingManager):
@@ -11,3 +13,8 @@ class SimpleScoutingManager(ScoutingManager):
             target = self.bot.known_enemy_structures.random_or(self.bot.enemy_start_locations[0]).position
             #print("ScoutingManager: scouting ", target)
             await self.worker_manager.scout(target)
+
+            for oc in self.bot.units(UnitTypeId.ORBITALCOMMAND):
+                if oc.build_progress == 1 and oc.energy >= 100:
+                    self.building_manager.scan(self.bot.known_enemy_structures().random)
+                    return
