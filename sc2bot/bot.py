@@ -28,8 +28,8 @@ class TerranBot(sc2.BotAI):
         self.army_manager = AdvancedArmyManager(self)
         self.assault_manager = ValueBasedAssaultManager(self, self.army_manager, self.worker_manager)
         self.building_manager = SimpleBuildingManager(self)
-        # self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "3x128_no_features_state_dict")
-        self.production_manager = SimpleProductionManager(self, self.worker_manager, self.building_manager)
+        self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "3x128_no_features_state_dict")
+        # self.production_manager = SimpleProductionManager(self, self.worker_manager, self.building_manager)
         self.scouting_manager = SimpleScoutingManager(self, self.worker_manager, self.building_manager)
         self.managers = [self.scouting_manager, self.production_manager, self.building_manager, self.assault_manager, self.army_manager, self.worker_manager]
         self.enemy_units = {}
