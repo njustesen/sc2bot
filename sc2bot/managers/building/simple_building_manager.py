@@ -177,3 +177,9 @@ class SimpleBuildingManager(BuildingManager):
         if ability is not None and self.bot.can_afford(upgrade_type):  # check if orbital is affordable
             return self.bot.units(UnitTypeId.COMMANDCENTER).idle.exists
         return False
+
+    def can_add_on(self, add_on):
+        for building in self.bot.units(self.add_on_at[add_on]).ready:
+            if not building.has_add_on:
+                return True
+        return False

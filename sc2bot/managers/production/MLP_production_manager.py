@@ -17,8 +17,12 @@ class MLPProductionManager(ProductionManager):
     is getting into the input for the model. It accepts also a pair of
     features.
     '''
-    def __init__(self, bot, worker_manager, building_manager, model_name):
+    def __init__(self, bot, worker_manager, building_manager, model_name, request_freq=24, reset_freq=24*10):
         super().__init__(bot, worker_manager, building_manager)
+
+        self.request_freq = request_freq
+        self.reset_freq = reset_freq
+
         self.action_dict = json.load(open("data/action_encoder.json"))
         self.inv_action_dict = {v: k for k, v in self.action_dict.items()}
         self.input_columns = json.load(open("data/columns_for_input.json"))
@@ -43,7 +47,9 @@ class MLPProductionManager(ProductionManager):
         self.num_enemy_units = 0
         self.train_action = None
         self.upgrade_action = None
+        self.add_on_action = None
         self.refresh = True
+        self.last_request = -1
     
     def prepare_input(self):
 
@@ -181,7 +187,12 @@ class MLPProductionManager(ProductionManager):
         required = self.bot.game_data().units[self.train_action.value]._proto.food_required if self.train_action is not None else 0
         supply_blocked = self.bot.supply_left - required < 0
 
+        # If supply blocked and planning to train - clear
         if supply_blocked and self.train_action and not (self.worker_manager.is_building(UnitTypeId.SUPPLYDEPOT) or self.worker_manager.is_building(UnitTypeId.COMMANDCENTER)):
+            self.refresh = True
+
+        # If stuck for 10 seconds - clear
+        if self.last_request + self.reset_freq < self.bot.state.observation.game_loop:
             self.refresh = True
 
         # Change plans if something changed
@@ -198,7 +209,7 @@ class MLPProductionManager(ProductionManager):
                 print(f"ProductionManager: can now affort {unit_type}.")
                 await self.building_manager.train(unit_type)
             return
-        elif self.upgrade_action is not None:  # If train action is planned
+        elif self.upgrade_action is not None:  # If upgrade action is planned
             if self.bot.can_afford(self.upgrade_action) and self.building_manager.can_upgrade(self.upgrade_action):
                 upgrade_action = self.upgrade_action
                 self.upgrade_action = None
@@ -206,10 +217,23 @@ class MLPProductionManager(ProductionManager):
                 print(f"ProductionManager: can now affort {upgrade_action}.")
                 await self.building_manager.upgrade(upgrade_action)
             return
+        elif self.add_on_action is not None:  # If add on action is planned
+            if self.bot.can_afford(self.add_on_action) and self.building_manager.can_add_on(self.add_on_action):
+                add_on_action = self.add_on_action
+                self.add_on_action = None
+                self.refresh = True
+                print(f"ProductionManager: can now affort {add_on_action}.")
+                await self.building_manager.add_on(add_on_action)
+            return
         else:
             return
 
+        # Only request model every 24 frames
+        if self.bot.state.observation.game_loop % self.request_freq != 0:
+            return
+
         self.refresh = False
+        self.last_request = self.bot.state.observation.game_loop
 
         x = self.prepare_input()
         x = np.array([x])
@@ -251,7 +275,13 @@ class MLPProductionManager(ProductionManager):
         elif action_type == "addon":
             print(f"ProductionManager: add on {build_name}.")
             unit_type = UnitTypeId[build_name.upper()]
-            await self.building_manager.add_on(unit_type)
+            if self.bot.can_afford(unit_type) and self.building_manager.can_add_on(unit_type):
+                self.refresh = True
+                print(f"ProductionManager: can affort {build_name}.")
+                await self.building_manager.add_on(unit_type)
+            else:
+                print(f"ProductionManager: cannot affort {build_name}.")
+                self.add_on_action = unit_type
         elif action_type == "calldown":
             print("ProductionManager: calleown mule.")
             await self.building_manager.calldown_mule()

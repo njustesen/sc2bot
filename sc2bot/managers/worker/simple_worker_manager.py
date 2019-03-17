@@ -50,8 +50,9 @@ class SimpleWorkerManager(WorkerManager):
 
             # Job cancelled or completed
             if build_job.done:
-                minerals = self.bot.state.units.mineral_field.closest_to(self.bot.start_location)
-                self.actions.append(build_job.worker.gather(minerals))
+                if build_job.worker is not None:
+                    minerals = self.bot.state.units.mineral_field.closest_to(self.bot.start_location)
+                    self.actions.append(build_job.worker.gather(minerals))
                 continue
 
             # Worker died
