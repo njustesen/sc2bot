@@ -109,7 +109,16 @@ class SimpleBuildingManager(BuildingManager):
     async def train(self, unit):
         # print("BuildingManager: training ", unit)
         if self.bot.can_afford(unit):
-            for building in self.bot.units(self.trained_at[unit]).ready.noqueue:
+            for building in self.bot.units(self.trained_at[unit]).ready:
+
+                # Free spot in queue
+                if building.add_on_tag != 0 and building.add_on_tag in self.bot.own_units and self.bot.own_units[building.add_on_tag].type_id == UnitTypeId.BARRACKSREACTOR:
+                    if len(building.orders) >= 2:
+                        continue
+                elif not building.noqueue:
+                    continue
+
+                # Add on requirement
                 if unit in self.add_on_requirement:
                     for add_on in self.bot.units(self.add_on_requirement[unit]).ready:
                         if add_on.tag == building.add_on_tag:
@@ -121,7 +130,7 @@ class SimpleBuildingManager(BuildingManager):
 
     async def add_on(self, add_on):
         for building in self.bot.units(self.add_on_at[add_on]).ready:
-            if not building.has_add_on:
+            if building.add_on_tag == 0:
                 self.actions.append(building.build(add_on))
                 return
 
@@ -159,7 +168,18 @@ class SimpleBuildingManager(BuildingManager):
 
     def can_train(self, unit_type):
         if self.bot.can_afford(unit_type):
-            for building in self.bot.units(self.trained_at[unit_type]).ready.noqueue:
+            for building in self.bot.units(self.trained_at[unit_type]).ready:
+
+                # Free spot in queue
+                if building.add_on_tag != 0 \
+                        and building.add_on_tag in self.bot.own_units \
+                        and self.bot.own_units[building.add_on_tag].type_id == UnitTypeId.BARRACKSREACTOR:
+                    if len(building.orders) >= 2:
+                        continue
+                elif not building.noqueue:
+                    continue
+
+                # Requirements
                 if unit_type in self.add_on_requirement:
                     for add_on in self.bot.units(self.add_on_requirement[unit_type]).ready:
                         if add_on.tag == building.add_on_tag:

@@ -1,3 +1,4 @@
+import random
 import sc2
 import asyncio
 from sc2bot.managers.interfaces import WorkerManager
@@ -6,6 +7,11 @@ from sc2.ids.ability_id import AbilityId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2, Point3
 from random import randint
+from typing import List, Dict, Set, Tuple, Any, Optional, Union # mypy type checking
+from sc2.ids.ability_id import AbilityId
+from sc2.unit import Unit
+from sc2.data import ActionResult
+from sc2.units import Units
 
 
 class BuildJob:
@@ -98,7 +104,6 @@ class SimpleWorkerManager(WorkerManager):
 
         #print("WorkerManager: building ", building)
         w = self._get_builder()
-        placement_steps = 2 if building == UnitTypeId.SUPPLYDEPOT else 4
         if w:  # if worker found
             assert self.scouting_worker is None or w.tag != self.scouting_worker.tag
             if location is None:
@@ -120,7 +125,10 @@ class SimpleWorkerManager(WorkerManager):
                         placement_positions = [self.bot.main_base_ramp.barracks_correct_placement]
 
                     if len(placement_positions) == 0:
-                        loc = await self.bot.find_placement(building, w.position, placement_step=placement_steps)
+                        if building == UnitTypeId.SUPPLYDEPOT:
+                            loc = await self.find_placement(building, self.bot.start_location, placement_step=2)
+                        else:
+                            loc = await self.find_placement(building, self.bot.units(UnitTypeId.BARRACKS)[0].position, placement_step=7)
                     else:
                         loc = placement_positions.pop()
             else:
@@ -159,9 +167,8 @@ class SimpleWorkerManager(WorkerManager):
     def _get_builder(self):
         ws = self.bot.workers.gathering
         if ws:  # if workers found
-            if self.scouting_worker in ws:
-                ws.remove(self.scouting_worker)
-            if ws.amount > 0:
+            not_scouts = Units([w for w in ws if self.scouting_worker is None or w.tag != self.scouting_worker.tag], self.bot.game_data())
+            if not_scouts.amount > 0:
                 return ws.furthest_to(ws.center)
         return None
 
@@ -266,6 +273,50 @@ class SimpleWorkerManager(WorkerManager):
             if building_type == build_job.building_type:
                 return True
         return False
+
+    async def find_placement(self, building: UnitTypeId, near: Union[Unit, Point2, Point3], max_distance: int=20, random_alternative: bool=True, placement_step: int=2) -> Optional[Point2]:
+        """Finds a placement location for building."""
+
+        assert isinstance(building, (AbilityId, UnitTypeId))
+        assert isinstance(near, Point2)
+
+        if isinstance(building, UnitTypeId):
+            building = self.bot.game_data().units[building.value].creation_ability
+        else:  # AbilityId
+            building = self.bot.game_data().abilities[building.value]
+
+        if await self.bot.can_place(building, near):
+            return near
+
+        if max_distance == 0:
+            return None
+
+        for distance in range(placement_step, max_distance, placement_step):
+
+            possible_positions = [Point2(p).offset(near).to2 for p in (
+                    [(dx, -distance/2) for dx in range(-distance, distance + 1, placement_step)] +
+                    [(dx, distance/2) for dx in range(-distance, distance + 1, placement_step)] +
+                    [(-distance, dy/2) for dy in range(-distance, distance + 1, placement_step)] +
+                    [(distance, dy/2) for dy in range(-distance, distance + 1, placement_step)]
+            )]
+            res = await self.bot.client().query_building_placement(building, possible_positions)
+            possible = [p for r, p in zip(res, possible_positions) if r == ActionResult.Success]
+
+            if not possible:
+                continue
+
+            if building in [AbilityId.TERRANBUILD_BARRACKS, AbilityId.TERRANBUILD_FACTORY, AbilityId.TERRANBUILD_STARPORT]:
+                add_on = self.bot.game_data().units[building.value].creation_ability
+                possible_positions_add_on = [(pos.x+2, pos.y+1) for pos in possible]
+                res_add_on = await self.bot.client().query_building_placement(add_on, possible_positions_add_on)
+                possible = [possible[i] for i in range(len(possible)) if res_add_on[i] == ActionResult.Success]
+
+            if random_alternative:
+                return random.choice(possible)
+            else:
+                return min(possible, key=lambda p: p.distance_to(near))
+
+        return None
 
     async def on_building_construction_started(self, building):
         for build_job in self.build_jobs:

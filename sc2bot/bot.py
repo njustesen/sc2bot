@@ -28,11 +28,12 @@ class TerranBot(sc2.BotAI):
         self.army_manager = AdvancedArmyManager(self)
         self.assault_manager = ValueBasedAssaultManager(self, self.army_manager, self.worker_manager)
         self.building_manager = SimpleBuildingManager(self)
-        self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "3x128_no_features_state_dict")
-        # self.production_manager = SimpleProductionManager(self, self.worker_manager, self.building_manager)
+        # self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "3x128_no_features_state_dict")
+        self.production_manager = SimpleProductionManager(self, self.worker_manager, self.building_manager)
         self.scouting_manager = SimpleScoutingManager(self, self.worker_manager, self.building_manager)
         self.managers = [self.scouting_manager, self.production_manager, self.building_manager, self.assault_manager, self.army_manager, self.worker_manager]
         self.enemy_units = {}
+        self.own_units = {}
         print("Bot is ready")
 
     async def on_step(self, iteration):
@@ -64,6 +65,9 @@ class TerranBot(sc2.BotAI):
     def game_data(self):
         return self._game_data
 
+    def client(self):
+        return self._client
+
     async def get_next_expansion(self):
         """Find next expansion location."""
 
@@ -89,17 +93,20 @@ class TerranBot(sc2.BotAI):
         return closest
 
     async def on_unit_destroyed(self, unit_tag):
-        if unit_tag in self.enemy_units.keys():
-            print(self.enemy_units[unit_tag].type_id, " killed!")
+        if unit_tag in self.own_units:
+            del self.own_units[unit_tag]
+        if unit_tag in self.enemy_units:
             del self.enemy_units[unit_tag]
         for manager in self.managers:
             await manager.on_unit_destroyed(unit_tag)
 
     async def on_unit_created(self, unit):
+        self.own_units[unit.tag] = unit
         for manager in self.managers:
             await manager.on_unit_created(unit)
 
     async def on_building_construction_started(self, unit):
+        self.own_units[unit.tag] = unit
         for manager in self.managers:
             await manager.on_building_construction_started(unit)
 

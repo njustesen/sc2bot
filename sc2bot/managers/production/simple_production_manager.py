@@ -27,13 +27,19 @@ class SimpleProductionManager(ProductionManager):
             if self.bot.supply_left < self.bot.units(UnitTypeId.BARRACKS).amount + self.bot.units(UnitTypeId.COMMANDCENTER).amount:
                 self.next_iteration += 20
                 await self.worker_manager.build(UnitTypeId.SUPPLYDEPOT)
+            elif self.bot.units(UnitTypeId.REFINERY).amount < self.bot.units(UnitTypeId.COMMANDCENTER).amount * 2:
+                self.next_iteration += 2
+                await self.worker_manager.build(UnitTypeId.REFINERY)
+            elif self.bot.units(UnitTypeId.BARRACKSREACTOR).amount < self.bot.units(UnitTypeId.BARRACKS).amount and self.bot.units(UnitTypeId.BARRACKS).ready.exists and self.bot.can_afford(UnitTypeId.REFINERY):
+                self.next_iteration += 2
+                await self.building_manager.add_on(UnitTypeId.BARRACKSREACTOR)
             elif (self.bot.units(UnitTypeId.COMMANDCENTER).idle.exists or self.bot.units(UnitTypeId.ORBITALCOMMAND).idle.exists) and self.bot.units(UnitTypeId.SCV).amount < 20 * self.bot.units(UnitTypeId.COMMANDCENTER).amount:
                 self.next_iteration += 2
                 await self.building_manager.train(UnitTypeId.SCV)
-            elif self.bot.can_afford(UnitTypeId.MARINE) and self.bot.units(UnitTypeId.BARRACKS).idle.exists:
+            elif self.bot.can_afford(UnitTypeId.MARINE) and self.building_manager.can_train(UnitTypeId.MARINE):
                 self.next_iteration += 2
                 await self.building_manager.train(UnitTypeId.MARINE)
-            elif self.bot.can_afford(UnitTypeId.BARRACKS) and self.bot.units(UnitTypeId.BARRACKS).amount < 4 * self.bot.units(UnitTypeId.COMMANDCENTER).amount:
+            elif self.bot.can_afford(UnitTypeId.BARRACKS) and self.bot.units(UnitTypeId.BARRACKS).amount < 1 * self.bot.units(UnitTypeId.COMMANDCENTER).amount:
                 self.next_iteration += 20
                 await self.worker_manager.build(UnitTypeId.BARRACKS)
             elif self.bot.can_afford(UnitTypeId.COMMANDCENTER):
