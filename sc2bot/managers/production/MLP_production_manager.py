@@ -17,11 +17,12 @@ class MLPProductionManager(ProductionManager):
     is getting into the input for the model. It accepts also a pair of
     features.
     '''
-    def __init__(self, bot, worker_manager, building_manager, model_name, request_freq=24, reset_freq=24*10):
+    def __init__(self, bot, worker_manager, building_manager, model_name, request_freq=24, reset_freq=24*10, features=[]):
         super().__init__(bot, worker_manager, building_manager)
 
         self.request_freq = request_freq
         self.reset_freq = reset_freq
+        self.features = features
 
         self.action_dict = json.load(open("data/action_encoder_2.json"))
         self.inv_action_dict = {v: k for k, v in self.action_dict.items()}
@@ -169,6 +170,10 @@ class MLPProductionManager(ProductionManager):
 
         normalized = [row[i] / self.columns_maxes[self.input_columns[i]] for i in range(len(self.input_columns))]
         print(normalized)
+
+        if len(self.features) > 0:
+            for feature in self.features:
+                normalized.append(feature)
 
         return normalized
 
