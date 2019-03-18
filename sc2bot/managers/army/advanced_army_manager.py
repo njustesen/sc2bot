@@ -2,6 +2,9 @@ from sc2bot.managers.interfaces import ArmyManager
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.units import Units
 from sc2bot.managers.army.squad import Squad
+from sc2.ids.ability_id import AbilityId
+import math
+from sc2.units import Units
 
 
 class AdvancedArmyManager(ArmyManager):
@@ -30,6 +33,13 @@ class AdvancedArmyManager(ArmyManager):
             await squad.run()
 
     async def attack(self, target, unit_types=None):
+        # Unload bunkers
+        bunkers = self.bot.units(UnitTypeId.BUNKER).ready
+        for bunker in bunkers:
+            for passenger in bunker.passengers:
+                if unit_types is None or passenger.type_id in unit_types:
+                    self.actions.append(bunker(AbilityId.UNLOADALL))
+                    self.actions.append(bunker(AbilityId.UNLOADALL_BUNKER))
         squad = Squad(self.bot, target, unit_types, order="attack")
         if unit_types is None:
             self.squads = [squad]

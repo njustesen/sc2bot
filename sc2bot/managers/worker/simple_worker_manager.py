@@ -166,10 +166,18 @@ class SimpleWorkerManager(WorkerManager):
                     if len(placement_positions) == 0:
                         if building == UnitTypeId.SUPPLYDEPOT:
                             loc = await self.find_placement(building, self.bot.start_location, placement_step=2)
+                        elif building == UnitTypeId.BUNKER:
+                            if self.bot.townhalls.amount == 1:
+                                loc = await self.find_placement(building, list(self.bot.main_base_ramp.corner_depots)[1],
+                                                                placement_step=1)
+                            else:
+                                loc = await self.find_placement(building,
+                                                                list(self.bot.townhalls)[1].position,
+                                                                placement_step=1)
                         elif self.bot.units(UnitTypeId.BARRACKS).exists:
-                            loc = await self.find_placement(building, self.bot.units(UnitTypeId.BARRACKS)[0].position, placement_step=7)
+                            loc = await self.find_placement(building, self.bot.units(UnitTypeId.BARRACKS)[0].position, placement_step=7, random_alternative=False)
                         else:
-                            loc = await self.find_placement(building, self.bot.units.structure[0],
+                            loc = await self.find_placement(building, self.bot.units.structure[0].position,
                                                             placement_step=7)
                     else:
                         loc = placement_positions.pop()
@@ -355,7 +363,8 @@ class SimpleWorkerManager(WorkerManager):
                 continue
 
             if building in [AbilityId.TERRANBUILD_BARRACKS, AbilityId.TERRANBUILD_FACTORY, AbilityId.TERRANBUILD_STARPORT]:
-                add_on = self.bot.game_data().units[building.value].creation_ability
+                #add_on = self.bot.game_data().units[building.value].creation_ability
+                add_on = AbilityId.TERRANBUILD_COMMANDCENTER
                 possible_positions_add_on = [(pos.x+4, pos.y+1) for pos in possible]
                 res_add_on = await self.bot.client().query_building_placement(add_on, possible_positions_add_on)
                 possible = [possible[i] for i in range(len(possible)) if res_add_on[i] == ActionResult.Success]

@@ -102,7 +102,7 @@ class SimpleBuildingManager(BuildingManager):
         # Lower depos when no enemies are nearby
         for depo in self.bot.units(UnitTypeId.SUPPLYDEPOTLOWERED).ready:
             for unit in self.bot.known_enemy_units.not_structure:
-                if unit.position.to2.distance_to(depo.position.to2) < 10:
+                if unit.position.to2.distance_to(depo.position.to2) < 3:
                     self.actions.append(depo(AbilityId.MORPH_SUPPLYDEPOT_RAISE))
                     break
 

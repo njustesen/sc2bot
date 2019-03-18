@@ -1,5 +1,8 @@
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.ids.ability_id import AbilityId
 import math
+from sc2.units import Units
+
 
 class Squad:
 
@@ -44,25 +47,39 @@ class Squad:
             if closest_enemy_unit is None or closest_enemy_air_unit.distance_to(unit.position) < closest_enemy_unit.distance_to(unit.position):
                 closest_enemy_unit = closest_enemy_air_unit
 
-        # Is the closest enemy closer to our base than us -> then get mad?
-        '''
+        range_own = 0
         if closest_enemy_unit is not None:
-            for building in self.units.structure:
-                r_own = unit.ground_range if not closest_enemy_unit.is_flying else unit.air_range
-                r_opp = closest_enemy_unit.ground_range if closest_enemy_unit.can_attack_ground else unit.air_range
-                r = max(r_own, r_opp)
-                if unit.distance_to(building) > closest_enemy_unit.distance_to(building) or closest_enemy_unit.distance_to(building) < r:
-                    type = "attack"
-                    target = closest_enemy_unit
-                    break
-        '''
+            range_own = unit.ground_range if not closest_enemy_unit.is_flying else unit.air_range
+
+        # TODO: Is the closest enemy closer to our base than us -> then get mad?
+
         # Decide what to do
         if closest_enemy_unit is not None:
-            if type == "attack" or closest_enemy_unit.distance_to(unit.position) < max(unit.ground_range,
-                                                                                       unit.air_range):
+            if type == "attack" or closest_enemy_unit.distance_to(unit.position) < range_own:
+
+                # Basic attack
                 self._basic_attack(unit, closest_enemy_unit)
+
             else:
-                self.actions.append(unit.move(target))
+
+                if self.bot.iteration % 20 == 0:
+
+                    # Go into bunker
+                    bunkers = self.bot.units(UnitTypeId.BUNKER).ready
+                    if bunkers.exists:
+                        for bunker in bunkers:
+                            if bunker.cargo_used < bunker.cargo_max:
+                                self.actions.append(bunker(AbilityId.LOAD_BUNKER, unit))
+                                # self.actions.append(unit.move(bunker))
+                                return
+
+                # Give some slack if kinda close
+                if unit.distance_to(target) <= 15 and self.bot.iteration % 20 != 0:
+                    return
+
+                # Otherwise hurry up
+                if unit.distance_to(target) > 5:
+                    self.actions.append(unit.move(target))
 
     def _basic_attack(self, unit, closest_enemy_unit):
         range = unit.air_range if closest_enemy_unit.is_flying else unit.ground_range
