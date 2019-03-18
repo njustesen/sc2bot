@@ -12,7 +12,6 @@ class AdvancedArmyManager(ArmyManager):
 
     async def run(self):
 
-
         # Create squads
         for squad in self.squads:
             units = []

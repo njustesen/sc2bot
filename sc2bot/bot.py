@@ -28,8 +28,8 @@ class TerranBot(sc2.BotAI):
         self.army_manager = AdvancedArmyManager(self)
         self.assault_manager = ValueBasedAssaultManager(self, self.army_manager, self.worker_manager)
         self.building_manager = SimpleBuildingManager(self)
-        # self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "3x128_no_features_state_dict")
-        self.production_manager = SimpleProductionManager(self, self.worker_manager, self.building_manager)
+        self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "3x128_no_features_state_dict")
+        # self.production_manager = SimpleProductionManager(self, self.worker_manager, self.building_manager)
         self.scouting_manager = SimpleScoutingManager(self, self.worker_manager, self.building_manager)
         self.managers = [self.scouting_manager, self.production_manager, self.building_manager, self.assault_manager, self.army_manager, self.worker_manager]
         self.enemy_units = {}
@@ -119,7 +119,7 @@ def main():
     # Multiple difficulties for enemy bots available https://github.com/Blizzard/s2client-api/blob/ce2b3c5ac5d0c85ede96cef38ee7ee55714eeb2f/include/sc2api/sc2_gametypes.h#L30
     sc2.run_game(sc2.maps.get("(2)CatalystLE"), [
         Bot(Race.Terran, TerranBot()),
-        Computer(Race.Zerg, Difficulty.Hard)
+        Computer(Race.Zerg, Difficulty.Medium)
     ], realtime=False)
 
 

@@ -1,5 +1,5 @@
 from sc2.ids.unit_typeid import UnitTypeId
-
+import math
 
 class Squad:
 
@@ -44,11 +44,22 @@ class Squad:
             if closest_enemy_unit is None or closest_enemy_air_unit.distance_to(unit.position) < closest_enemy_unit.distance_to(unit.position):
                 closest_enemy_unit = closest_enemy_air_unit
 
+        # Is the closest enemy closer to our base than us -> then get mad?
+        '''
+        if closest_enemy_unit is not None:
+            for building in self.units.structure:
+                r_own = unit.ground_range if not closest_enemy_unit.is_flying else unit.air_range
+                r_opp = closest_enemy_unit.ground_range if closest_enemy_unit.can_attack_ground else unit.air_range
+                r = max(r_own, r_opp)
+                if unit.distance_to(building) > closest_enemy_unit.distance_to(building) or closest_enemy_unit.distance_to(building) < r:
+                    type = "attack"
+                    target = closest_enemy_unit
+                    break
+        '''
         # Decide what to do
         if closest_enemy_unit is not None:
             if type == "attack" or closest_enemy_unit.distance_to(unit.position) < max(unit.ground_range,
                                                                                        unit.air_range):
-                #if unit.type_id in [UnitTypeId.MARINE:
                 self._basic_attack(unit, closest_enemy_unit)
             else:
                 self.actions.append(unit.move(target))

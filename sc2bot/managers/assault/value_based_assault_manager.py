@@ -14,8 +14,9 @@ class ValueBasedAssaultManager(AssaultManager):
 
             # Target
             opp_base = self.bot.known_enemy_structures.random_or(self.bot.enemy_start_locations[0]).position
-            opp_threats = self.bot.known_enemy_structures.prefer_close_to(self.bot.enemy_start_locations[0])
-            own_base = self.bot.start_location
+            opp_threats = self.bot.known_enemy_units.prefer_close_to(self.bot.start_location)
+            own_base = self.bot.units.structure.closest_to(self.bot.enemy_start_locations[0]) if not opp_threats.exists else self.bot.units.structure.closest_to(opp_threats[0])
+            defend = own_base if not opp_threats.exists or opp_threats[0].distance_to(own_base) > 20 else opp_threats[0]
             target = opp_threats[0] if len(opp_threats) > 0 else opp_base
 
             # Should attack
@@ -41,7 +42,7 @@ class ValueBasedAssaultManager(AssaultManager):
                 await self.army_manager.attack(target, [unit.type_id for unit in self.bot.units() if not unit.is_flying])
             else:
                 #print("AssaultManager: defending with everything", target)
-                await self.army_manager.defend(own_base, None)
+                await self.army_manager.defend(defend, None)
 
     def army_value(self, units, include_buildings=False):
         air_to_air = 0
@@ -54,13 +55,13 @@ class ValueBasedAssaultManager(AssaultManager):
                     #cost = self.bot.game_data().calculate_ability_cost(u.creation_ability)
                     ##cost = cost.minerals + cost.gas
                     if unit.can_attack_ground:
-                        value = unit.health * unit.air_dps
+                        value = unit.health * unit.ground_dps
                         if unit.is_flying:
                             air_to_ground += value
                         else:
                             ground_to_ground += value
                     if unit.can_attack_air:
-                        value = unit.health * unit.ground_dps
+                        value = unit.health * unit.air_dps
                         if unit.is_flying:
                             air_to_air += value
                         else:

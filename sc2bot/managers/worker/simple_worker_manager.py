@@ -14,6 +14,14 @@ from sc2.data import ActionResult
 from sc2.units import Units
 
 
+class RepairJob:
+
+    def __init__(self, building):
+        self.workers = []
+        self.building = building
+        self.done = False
+
+
 class BuildJob:
 
     def __init__(self, worker, building_type, location):
@@ -33,6 +41,7 @@ class SimpleWorkerManager(WorkerManager):
         self.scouting_location = None
         self.last_scouting_location = None
         self.build_jobs = []
+        self.repair_jobs = []
 
     async def run(self):
 
@@ -41,6 +50,16 @@ class SimpleWorkerManager(WorkerManager):
                 if self.scouting_worker is None or self.scouting_worker.tag != idle_worker.tag:
                     mf = self.bot.state.mineral_field.closest_to(idle_worker)
                     self.actions.append(idle_worker.gather(mf))
+
+            for building in self.bot.units.structure.ready:
+                if building.health < building.health_max:
+                    found = False
+                    for repair_job in self.repair_jobs:
+                        if repair_job.building == building:
+                            found = True
+                            break
+                    if not found:
+                        self.repair_jobs.append(RepairJob(building))
 
         if self.scouting_worker is not None:
             for unit in self.bot.known_enemy_units.not_structure:
@@ -81,11 +100,31 @@ class SimpleWorkerManager(WorkerManager):
 
         self.build_jobs = [build_job for build_job in self.build_jobs if not build_job.done]
 
+        for repair_job in self.repair_jobs:
+
+            # Check if done
+            if repair_job.building.health > repair_job.building.health_max:
+                repair_job.done = True
+
+            # Job cancelled or completed
+            if repair_job.done:
+                for worker in repair_job.workers:
+                    if worker is not None:
+                        minerals = self.bot.state.units.mineral_field.closest_to(self.bot.start_location)
+                        self.actions.append(repair_job.worker.gather(minerals))
+                continue
+
+            # Worker died
+            for worker in repair_job.workers:
+                if worker is None:
+                    w = self._get_builder()
+                    repair_job.worker.append(w)
+                    self.actions.append(worker.repair(repair_job.building.location))
+
+        self.repair_jobs = [repair_job for repair_job in self.repair_jobs if not repair_job.done]
+
         # await self.bot.do_actions(self.combinedActions)
         # self.combinedActions = []
-
-    async def distribute(self):
-        await self.bot.distribute_workers()
 
     async def build(self, building, location=None):
 
@@ -157,25 +196,32 @@ class SimpleWorkerManager(WorkerManager):
                 self.actions.append(w.move(location))
 
     async def rush(self, location):
+        '''
         for w in self.bot.workers:
             self.actions.append(w.attack(location))
+        '''
 
     async def defend(self, location):
         for w in self.bot.workers:
             self.actions.append(w.attack(location))
 
-    def _get_builder(self):
+    def _get_builder(self, location=None):
         ws = self.bot.workers.gathering
         if ws:  # if workers found
             not_scouts = Units([w for w in ws if self.scouting_worker is None or w.tag != self.scouting_worker.tag], self.bot.game_data())
             if not_scouts.amount > 0:
-                return ws.furthest_to(ws.center)
+                if location is None:
+                    return ws.furthest_to(ws.center)
+                else:
+                    if ws.moving.exists and ws.moving.gathering.exists:
+                        return ws.moving.gathering.closest_to(location)
+                    else:
+                        return ws.closest_to(location)
         return None
 
     def distribute_workers(self, performanceHeavy=True, onlySaturateGas=False):
         # expansion_locations = self.expansion_locations
         # owned_expansions = self.owned_expansions
-
 
         mineralTags = [x.tag for x in self.bot.state.units.mineral_field]
         # gasTags = [x.tag for x in self.state.units.vespene_geyser]
@@ -307,7 +353,7 @@ class SimpleWorkerManager(WorkerManager):
 
             if building in [AbilityId.TERRANBUILD_BARRACKS, AbilityId.TERRANBUILD_FACTORY, AbilityId.TERRANBUILD_STARPORT]:
                 add_on = self.bot.game_data().units[building.value].creation_ability
-                possible_positions_add_on = [(pos.x+2, pos.y+1) for pos in possible]
+                possible_positions_add_on = [(pos.x+4, pos.y+1) for pos in possible]
                 res_add_on = await self.bot.client().query_building_placement(add_on, possible_positions_add_on)
                 possible = [possible[i] for i in range(len(possible)) if res_add_on[i] == ActionResult.Success]
 
@@ -325,21 +371,27 @@ class SimpleWorkerManager(WorkerManager):
                 build_job.building = building
 
     async def on_building_construction_complete(self, building):
-        if building.type_id in [UnitTypeId.COMMANDCENTER, UnitTypeId.REFINERY]:
-            self.distribute_workers()
         for build_job in self.build_jobs:
             if build_job.building is not None and building.tag == build_job.building.tag:
                 build_job.under_construction = False
                 build_job.done = True
+        self.distribute_workers()
 
     async def on_unit_destroyed(self, unit_tag):
         if self.scouting_worker is not None and self.scouting_worker.tag == unit_tag:
             self.scouting_worker = None
+
+        # Check if
+        for repair_job in self.repair_jobs:
+            if repair_job.building.tag == unit_tag:
+                repair_job.done = True
+                break
+
         for build_job in self.build_jobs:
             if build_job.worker is not None and build_job.worker.tag == unit_tag:
                 build_job.worker = None
-                return
+                break
             if build_job.building is not None and build_job.building.tag == unit_tag:
                 build_job.building = None
                 build_job.done = True
-                return
+                break
