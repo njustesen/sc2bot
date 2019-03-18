@@ -166,8 +166,11 @@ class SimpleWorkerManager(WorkerManager):
                     if len(placement_positions) == 0:
                         if building == UnitTypeId.SUPPLYDEPOT:
                             loc = await self.find_placement(building, self.bot.start_location, placement_step=2)
-                        else:
+                        elif self.bot.units(UnitTypeId.BARRACKS).exists:
                             loc = await self.find_placement(building, self.bot.units(UnitTypeId.BARRACKS)[0].position, placement_step=7)
+                        else:
+                            loc = await self.find_placement(building, self.bot.units.structure[0],
+                                                            placement_step=7)
                     else:
                         loc = placement_positions.pop()
             else:

@@ -23,7 +23,7 @@ class MLPProductionManager(ProductionManager):
         self.request_freq = request_freq
         self.reset_freq = reset_freq
 
-        self.action_dict = json.load(open("data/action_encoder.json"))
+        self.action_dict = json.load(open("data/action_encoder_2.json"))
         self.inv_action_dict = {v: k for k, v in self.action_dict.items()}
         self.input_columns = json.load(open("data/columns_for_input.json"))
         self.columns_maxes = json.load(open("data/all_columns_maxes.json"))
