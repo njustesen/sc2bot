@@ -21,7 +21,7 @@ class SimpleBuildingManager(BuildingManager):
             UnitTypeId.MEDIVAC: UnitTypeId.STARPORT,
             UnitTypeId.NUKE: UnitTypeId.GHOSTACADEMY,
             UnitTypeId.RAVEN: UnitTypeId.STARPORT,
-            UnitTypeId.REAPER: UnitTypeId.STARPORT,
+            UnitTypeId.REAPER: UnitTypeId.BARRACKS,
             UnitTypeId.SCV: UnitTypeId.COMMANDCENTER,
             UnitTypeId.SIEGETANK: UnitTypeId.FACTORY,
             UnitTypeId.THOR: UnitTypeId.FACTORY,

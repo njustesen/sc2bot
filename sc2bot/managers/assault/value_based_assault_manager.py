@@ -40,7 +40,7 @@ class ValueBasedAssaultManager(AssaultManager):
             elif own_ground_to_ground > opp_ground_to_ground and own_ground_to_air > opp_air_to_ground:
                 #print("AssaultManager: Attacking with ground units", target)
                 await self.army_manager.attack(target, [unit.type_id for unit in self.bot.units() if not unit.is_flying and unit.type_id not in [UnitTypeId.SCV, UnitTypeId.MULE]])
-                await self.army_manager.defend(defend, [unit.type_id for unit in self.bot.units.not_structure.flying()])
+                # await self.army_manager.defend(defend, [unit.type_id for unit in self.bot.units.not_structure.flying()])
             else:
                 #print("AssaultManager: defending with everything", target)
                 await self.army_manager.defend(defend, None)

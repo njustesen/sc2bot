@@ -331,6 +331,12 @@ class SimpleWorkerManager(WorkerManager):
                 return True
         return False
 
+    def has_unstarted_plan(self):
+        for build_job in self.build_jobs:
+            if build_job.building is None:
+                return True
+        return False
+
     async def find_placement(self, building: UnitTypeId, near: Union[Unit, Point2, Point3], max_distance: int=20, random_alternative: bool=True, placement_step: int=2) -> Optional[Point2]:
         """Finds a placement location for building."""
 

@@ -92,6 +92,9 @@ class WorkerManager(Manager):
     def is_building(self, building_type):
         raise NotImplementedError("Must be overridden by subclass")
 
+    def has_unstarted_plan(self):
+        raise NotImplementedError("Must be overridden by subclass")
+
 
 class BuildingManager(Manager):
 
