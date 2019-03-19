@@ -324,6 +324,10 @@ class MLPProductionManager(ProductionManager):
         if action_type == "train":
             print(f"ProductionManager: train {build_name}.")
             unit_type = UnitTypeId[build_name.upper()]
+            if not self.building_manager.is_legal_training_action(unit_type):
+                self.refresh = True
+                print("Illegal action:", unit_type)
+                return
             if unit_type is None:
                 print(f"Unknown unit type {unit_type}")
             if self.bot.can_afford(unit_type) and self.building_manager.can_train(unit_type):
@@ -336,6 +340,10 @@ class MLPProductionManager(ProductionManager):
         elif action_type == "build":
             print(f"ProductionManager: build {build_name}.")
             unit_type = UnitTypeId[build_name.upper()]
+            if not self.building_manager.is_legal_build_action(unit_type):
+                self.refresh = True
+                print("Illegal action:", unit_type)
+                return
             if self.worker_manager.has_unstarted_plan():
                 self.build_action = unit_type
             else:
@@ -348,6 +356,10 @@ class MLPProductionManager(ProductionManager):
         elif action_type == "upgrade":
             print(f"ProductionManager: upgrade {build_name}.")
             upgrade_type = UnitTypeId[build_name.upper()]
+            if not self.building_manager.is_legal_upgrade_action(upgrade_type):
+                self.refresh = True
+                print("Illegal action:", upgrade_type)
+                return
             if self.building_manager.can_upgrade(upgrade_type):
                 # print(f"ProductionManager: upgrade {upgrade_type}.")
                 await self.building_manager.upgrade(upgrade_type)
@@ -357,6 +369,10 @@ class MLPProductionManager(ProductionManager):
         elif action_type == "addon":
             print(f"ProductionManager: add on {build_name}.")
             unit_type = UnitTypeId[build_name.upper()]
+            if not self.building_manager.is_legal_build_action(unit_type):
+                self.refresh = True
+                print("Illegal action:", unit_type)
+                return
             if self.bot.can_afford(unit_type) and self.building_manager.can_add_on(unit_type):
                 self.refresh = True
                 # print(f"ProductionManager: build {build_name}.")

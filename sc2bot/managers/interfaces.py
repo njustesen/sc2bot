@@ -131,6 +131,15 @@ class BuildingManager(Manager):
     def can_add_on(self, add_on):
         raise NotImplementedError("Must be overridden by subclass")
 
+    def is_legal_training_action(self, unit_type):
+        raise NotImplementedError("Must be overridden by subclass")
+
+    def is_legal_upgrade_action(self, upgrade_type):
+        raise NotImplementedError("Must be overridden by subclass")
+
+    def is_legal_build_action(self, build_type):
+        raise NotImplementedError("Must be overridden by subclass")
+
 
 class ArmyManager(Manager):
 

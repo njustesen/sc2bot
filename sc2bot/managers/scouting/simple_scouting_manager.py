@@ -14,7 +14,6 @@ class SimpleScoutingManager(ScoutingManager):
             # print("ScoutingManager: scouting ", target)
             await self.worker_manager.scout(target)
 
-        '''
         if self.bot.iteration % 20 == 0:
             for oc in self.bot.units(UnitTypeId.ORBITALCOMMAND):
                 if oc.build_progress == 1 and oc.energy >= 60:
@@ -22,4 +21,3 @@ class SimpleScoutingManager(ScoutingManager):
                         await self.building_manager.scan(self.bot.known_enemy_structures().random)
                     else:
                         await self.building_manager.scan(self.bot.enemy_start_locations[0])
-        '''
