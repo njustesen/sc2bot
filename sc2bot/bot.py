@@ -120,7 +120,7 @@ def main():
     # Multiple difficulties for enemy bots available https://github.com/Blizzard/s2client-api/blob/ce2b3c5ac5d0c85ede96cef38ee7ee55714eeb2f/include/sc2api/sc2_gametypes.h#L30
     sc2.run_game(sc2.maps.get("(2)CatalystLE"), [
         Bot(Race.Terran, TerranBot()),
-        Computer(Race.Zerg, Difficulty.Easy)
+        Computer(Race.Zerg, Difficulty.Medium)
     ], realtime=False)
 
 

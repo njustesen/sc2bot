@@ -356,11 +356,14 @@ class SimpleWorkerManager(WorkerManager):
 
         for distance in range(placement_step, max_distance, placement_step):
 
+            h = 2
+            if building is UnitTypeId.FACTORY:
+                h = 1
             possible_positions = [Point2(p).offset(near).to2 for p in (
-                    [(dx, -distance/2) for dx in range(-distance, distance + 1, placement_step)] +
-                    [(dx, distance/2) for dx in range(-distance, distance + 1, placement_step)] +
-                    [(-distance, dy/2) for dy in range(-distance, distance + 1, placement_step)] +
-                    [(distance, dy/2) for dy in range(-distance, distance + 1, placement_step)]
+                    [(dx, -distance/h) for dx in range(-distance, distance + 1, placement_step)] +
+                    [(dx, distance/h) for dx in range(-distance, distance + 1, placement_step)] +
+                    [(-distance, dy/h) for dy in range(-distance, distance + 1, placement_step)] +
+                    [(distance, dy/h) for dy in range(-distance, distance + 1, placement_step)]
             )]
             res = await self.bot.client().query_building_placement(building, possible_positions)
             possible = [p for r, p in zip(res, possible_positions) if r == ActionResult.Success]

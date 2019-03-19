@@ -90,8 +90,8 @@ class SimpleBuildingManager(BuildingManager):
         }
 
         self.requirements = {
-            UnitTypeId.FACTORY: [UnitTypeId.BARRACKS],
-            UnitTypeId.STARPORT: [UnitTypeId.FACTORY],
+            UnitTypeId.FACTORY: [UnitTypeId.BARRACKS, UnitTypeId.REFINERY],
+            UnitTypeId.STARPORT: [UnitTypeId.FACTORY, UnitTypeId.REFINERY],
             UnitTypeId.BARRACKS: [UnitTypeId.COMMANDCENTER],
             UnitTypeId.ENGINEERINGBAY: [UnitTypeId.COMMANDCENTER],
             UnitTypeId.MISSILETURRET: [UnitTypeId.ENGINEERINGBAY],
@@ -125,7 +125,7 @@ class SimpleBuildingManager(BuildingManager):
                     self.actions.append(depo(AbilityId.MORPH_SUPPLYDEPOT_RAISE))
                     break
 
-    async def train(self, unit):
+    async def train(self, unit, max_queue=5):
         # print("BuildingManager: training ", unit)
         if self.bot.can_afford(unit):
             trainer = self.trained_at[unit]
@@ -138,9 +138,9 @@ class SimpleBuildingManager(BuildingManager):
 
                     # Free spot in queue
                     if building.add_on_tag != 0 and building.add_on_tag in self.bot.own_units and self.bot.own_units[building.add_on_tag].type_id == UnitTypeId.BARRACKSREACTOR:
-                        if len(building.orders) >= 2:
+                        if len(building.orders) >= max_queue + 1:
                             continue
-                    elif not building.noqueue:
+                    elif len(building.orders) >= max_queue:
                         continue
 
                     # Add on requirement
@@ -190,7 +190,7 @@ class SimpleBuildingManager(BuildingManager):
                 self.actions.append(cc(ability))
                 return
 
-    def can_train(self, unit_type, must_be_ready=True, must_afford=True):
+    def can_train(self, unit_type, must_be_ready=True, must_afford=True, max_queue=5):
         if self.bot.can_afford(unit_type) or not must_afford:
             trainer = self.trained_at[unit_type]
             trainers = [trainer]
@@ -205,9 +205,9 @@ class SimpleBuildingManager(BuildingManager):
                         if building.add_on_tag != 0 \
                                 and building.add_on_tag in self.bot.own_units \
                                 and self.bot.own_units[building.add_on_tag].type_id == UnitTypeId.BARRACKSREACTOR:
-                            if len(building.orders) >= 2:
+                            if len(building.orders) >= max_queue + 1:
                                 continue
-                        elif not building.noqueue:
+                        elif len(building.orders) >= max_queue:
                             continue
 
                     # Requirements
