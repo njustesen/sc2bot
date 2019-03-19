@@ -109,24 +109,30 @@ class SimpleBuildingManager(BuildingManager):
     async def train(self, unit):
         # print("BuildingManager: training ", unit)
         if self.bot.can_afford(unit):
-            for building in self.bot.units(self.trained_at[unit]).ready:
+            trainer = self.trained_at[unit]
+            trainers = [trainer]
+            if trainer == UnitTypeId.COMMANDCENTER:
+                trainers.append(UnitTypeId.ORBITALCOMMAND)
+                trainers.append(UnitTypeId.PLANETARYFORTRESS)
+            for trainer in trainers:
+                for building in self.bot.units(trainer).ready:
 
-                # Free spot in queue
-                if building.add_on_tag != 0 and building.add_on_tag in self.bot.own_units and self.bot.own_units[building.add_on_tag].type_id == UnitTypeId.BARRACKSREACTOR:
-                    if len(building.orders) >= 2:
+                    # Free spot in queue
+                    if building.add_on_tag != 0 and building.add_on_tag in self.bot.own_units and self.bot.own_units[building.add_on_tag].type_id == UnitTypeId.BARRACKSREACTOR:
+                        if len(building.orders) >= 2:
+                            continue
+                    elif not building.noqueue:
                         continue
-                elif not building.noqueue:
-                    continue
 
-                # Add on requirement
-                if unit in self.add_on_requirement:
-                    for add_on in self.bot.units(self.add_on_requirement[unit]).ready:
-                        if add_on.tag == building.add_on_tag:
-                            self.actions.append(building.train(unit))
-                            return
-                else:
-                    self.actions.append(building.train(unit))
-                    return
+                    # Add on requirement
+                    if unit in self.add_on_requirement:
+                        for add_on in self.bot.units(self.add_on_requirement[unit]).ready:
+                            if add_on.tag == building.add_on_tag:
+                                self.actions.append(trainer.train(unit))
+                                return
+                    else:
+                        self.actions.append(building.train(unit))
+                        return
 
     async def add_on(self, add_on):
         for building in self.bot.units(self.add_on_at[add_on]).ready:
@@ -149,10 +155,9 @@ class SimpleBuildingManager(BuildingManager):
 
     async def scan(self, location):
         for oc in self.bot.units(UnitTypeId.ORBITALCOMMAND).filter(lambda x: x.energy >= 50):
-            mfs = self.bot.state.mineral_field.closer_than(10, oc)
-            if mfs:
-                self.actions.append(oc(AbilityId.SCANNERSWEEP_SCAN, location))
-                return
+            print("Scanning")
+            self.actions.append(oc(AbilityId.SCANNERSWEEP_SCAN, location))
+            return
 
     async def upgrade(self, upgrade):
         ability = None
@@ -168,24 +173,30 @@ class SimpleBuildingManager(BuildingManager):
 
     def can_train(self, unit_type):
         if self.bot.can_afford(unit_type):
-            for building in self.bot.units(self.trained_at[unit_type]).ready:
+            trainer = self.trained_at[unit_type]
+            trainers = [trainer]
+            if trainer == UnitTypeId.COMMANDCENTER:
+                trainers.append(UnitTypeId.ORBITALCOMMAND)
+                trainers.append(UnitTypeId.PLANETARYFORTRESS)
+            for trainer in trainers:
+                for building in self.bot.units(trainer).ready:
 
-                # Free spot in queue
-                if building.add_on_tag != 0 \
-                        and building.add_on_tag in self.bot.own_units \
-                        and self.bot.own_units[building.add_on_tag].type_id == UnitTypeId.BARRACKSREACTOR:
-                    if len(building.orders) >= 2:
+                    # Free spot in queue
+                    if building.add_on_tag != 0 \
+                            and building.add_on_tag in self.bot.own_units \
+                            and self.bot.own_units[building.add_on_tag].type_id == UnitTypeId.BARRACKSREACTOR:
+                        if len(building.orders) >= 2:
+                            continue
+                    elif not building.noqueue:
                         continue
-                elif not building.noqueue:
-                    continue
 
-                # Requirements
-                if unit_type in self.add_on_requirement:
-                    for add_on in self.bot.units(self.add_on_requirement[unit_type]).ready:
-                        if add_on.tag == building.add_on_tag:
-                            return True
-                else:
-                    return True
+                    # Requirements
+                    if unit_type in self.add_on_requirement:
+                        for add_on in self.bot.units(self.add_on_requirement[unit_type]).ready:
+                            if add_on.tag == building.add_on_tag:
+                                return True
+                    else:
+                        return True
         return False
 
     def can_upgrade(self, upgrade_type):
@@ -200,6 +211,6 @@ class SimpleBuildingManager(BuildingManager):
 
     def can_add_on(self, add_on):
         for building in self.bot.units(self.add_on_at[add_on]).ready:
-            if not building.has_add_on:
+            if building.add_on_tag == 0:
                 return True
         return False

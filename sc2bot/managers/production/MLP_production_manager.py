@@ -43,6 +43,7 @@ class MLPProductionManager(ProductionManager):
         self.seen_enemy_units_max = {}
         # self.game_info = bot.game_info
         self.research_abilities = {}
+        self.unit_abilities = {}
 
         self.num_buildings = 0
         self.num_enemy_units = 0
@@ -65,41 +66,55 @@ class MLPProductionManager(ProductionManager):
         enemy_unit_types = set([unit.name for unit in self.bot.enemy_units.values()])
 
         units = {
-            name: len([
+            name.upper(): len([
                 unit.tag for unit in self.bot.units if unit.name == name and unit.build_progress == 1
             ]) for name in allied_unit_types
         }
 
-        print("Units: ", units)
-
+        # Buildings in progress
         units_in_progress = {
-            name: len([
-                unit.tag for unit in self.bot.units if unit.name == name and unit.build_progress < 1
+            name.upper(): len([
+                unit.tag for unit in self.bot.units.structure if unit.name == name and unit.build_progress < 1
             ]) for name in allied_unit_types
         }  # If this is implemented using the API, only buildings will appear.
 
-        print("Units in progress: ", units_in_progress)
+        units_in_progress = {k: v for k, v in units_in_progress.items() if v != 0}
 
         highest_progress = {
-            name: max([
-                unit.build_progress for unit in self.bot.units if unit.name == name and unit.build_progress < 1
+            name.upper(): max([
+                unit.build_progress for unit in self.bot.units.structure if unit.name.upper() == name and unit.build_progress < 1
             ], default=0) for name in units_in_progress
         }
 
+        # Units in progress
+        for building in self.bot.units.structure:
+            for order in building.orders:
+                if order.ability.id in self.unit_abilities:
+                    unit_type = self.unit_abilities[order.ability.id]
+                    progress = order.progress
+                    # highest_progress
+                    if unit_type not in highest_progress or progress < highest_progress[unit_type.name.upper()]:
+                        highest_progress[unit_type.name.upper()] = progress
+                    # units_in_progress
+                    if unit_type not in units_in_progress:
+                        units_in_progress[unit_type.name.upper()] = 1
+                    elif progress < highest_progress[unit_type]:
+                        units_in_progress[unit_type.name.upper()] += 1
+
         visible_enemy_units = {
-            name: len([
+            name.upper(): len([
                 unit.tag for unit in self.bot.known_enemy_units | self.bot.known_enemy_structures if unit.name == name
             ]) for name in enemy_unit_types
         }
 
         cached_enemy_units = {
-            name: len([
+            name.upper(): len([
                 unit.tag for unit in self.bot.enemy_units.values() if unit.name == name
             ]) for name in enemy_unit_types
         }
 
         upgrades = {
-            upgrade.name: 1 for upgrade in self.bot.state.upgrades
+            upgrade.name.upper(): 1 for upgrade in self.bot.state.upgrades
         }
 
         upgrades_progress = {}
@@ -108,25 +123,34 @@ class MLPProductionManager(ProductionManager):
             for order in structure.orders:
                 if order.ability.id in self.research_abilities:
                     upgrade_type = self.research_abilities[order.ability.id]
-                    # if "LEVEL" in upgrade_type.name:
-                    #    level = upgrade_type.name[-1]
-                    #if order.ability.button_name[-1] != level:
-                    #    upgrades_progress[upgrade_type.name] = 0
-                    #else:
-                    upgrades_progress[upgrade_type.name] = order.progress
+                    upgrades_progress[upgrade_type.name.upper()] = order.progress
 
         # Name fixes
-        if "SupplyDepotLowered" in units:
-            if "SupplyDepot" in units:
-                units["SupplyDepot"] = units["SupplyDepot"] + units["SupplyDepotLowered"]
+        if "SUPPLYDEPOTLOWERED" in units:
+            if "SUPPLYDEPOT" in units:
+                units["SUPPLYDEPOT"] = units["SUPPLYDEPOT"] + units["SUPPLYDEPOTLOWERED"]
             else:
-                units["SupplyDepot"] = units["SupplyDepotLowered"]
+                units["SUPPLYDEPOT"] = units["SUPPLYDEPOTLOWERED"]
+            del units["SUPPLYDEPOTLOWERED"]
+        if "SUPPLYDEPOTLOWERED" in units_in_progress:
+            del units_in_progress["SUPPLYDEPOTLOWERED"]
+        if "SUPPLYDEPOTLOWERED" in highest_progress:
+            del highest_progress["SUPPLYDEPOTLOWERED"]
 
-        if "SupplyDepot" in units:
-            if "SupplyDepot" in units_in_progress:
-                print(units["SupplyDepot"], "[", units_in_progress["SupplyDepot"], "] supply depots")
-            else:
-                print(units["SupplyDepot"], "supply depots")
+        print("--- OBSERVATION ---")
+        print("Frame: ", observation.game_loop)
+        print("Minerals: ", observation.player_common.minerals)
+        print("Vespene: ", observation.player_common.vespene)
+        print("Supply used: ", observation.player_common.food_used)
+        print("Supply total: ", observation.player_common.food_cap)
+        print("Units: ", units)
+        print("Units in progress: ", units_in_progress)
+        print("Highest progress: ", highest_progress)
+        print("Visible enemy units: ", visible_enemy_units)
+        print("Cached enemy units: ", cached_enemy_units)
+        print("upgrades: ", upgrades)
+        print("upgrades_progress: ", upgrades_progress)
+        print("-------------------")
 
         row = []
         for column in self.input_columns:
@@ -145,43 +169,43 @@ class MLPProductionManager(ProductionManager):
             elif column == "supply_workers":
                 row.append(observation.player_common.food_workers)
             elif "units_in_progress_" in column:
-                name = column.split("_")[-1]
+                name = column.split("_")[-1].upper()
                 if name in units_in_progress:
                     row.append(units_in_progress[name])
                 else:
                     row.append(0)
             elif "visible_enemy_units" in column:
-                name = column.split("_")[-1]
+                name = column.split("_")[-1].upper()
                 if name in visible_enemy_units:
                     row.append(visible_enemy_units[name])
                 else:
                     row.append(0)
             elif "seen_enemy_units" in column:
-                name = column.split("_")[-1]
+                name = column.split("_")[-1].upper()
                 if name in cached_enemy_units:
                     row.append(cached_enemy_units[name])
                 else:
                     row.append(0)
             elif "highest_progress" in column:
-                name = column.split("_")[-1]
+                name = column.split("_")[-1].upper()
                 if name in highest_progress:
                     row.append(highest_progress[name])
                 else:
                     row.append(0)
             elif "units" in column:
-                name = column.split("_")[-1]
+                name = column.split("_")[-1].upper()
                 if name in units:
                     row.append(units[name])
                 else:
                     row.append(0)
             elif "upgrade_progress" in column:
-                name = column.split("_")[-1]
+                name = column.split("_")[-1].upper()
                 if name in upgrades_progress:
                     row.append(upgrades_progress[name])
                 else:
                     row.append(0)
             elif "upgrades" in column:
-                name = column.split("_")[-1]
+                name = column.split("_")[-1].upper()
                 if name in upgrades:
                     row.append(upgrades[name])
                 else:
@@ -190,7 +214,8 @@ class MLPProductionManager(ProductionManager):
                 raise Exception(f"Unknown input: {column}")
 
         normalized = [row[i] / self.columns_maxes[self.input_columns[i]] for i in range(len(self.input_columns))]
-        print(normalized)
+        print("Normalized:", normalized)
+        print("-------------------")
 
         if len(self.features) > 0:
             for feature in self.features:
@@ -237,7 +262,7 @@ class MLPProductionManager(ProductionManager):
     async def run(self):
 
         if len(self.research_abilities) == 0:
-            self._init_research_abilites()
+            self._init_abilites()
 
         # Are we supply blocked?
         required = self.bot.game_data().units[self.train_action.value]._proto.food_required if self.train_action is not None else 0
@@ -282,11 +307,19 @@ class MLPProductionManager(ProductionManager):
         out = self.model(x)
         out = out.detach().numpy()
         out = np.exp(out)
+        print("--- Output ---")
+        #print(out)
+        out = out[0]
+        top_idx = list(reversed(np.argsort(out)[-3:]))
+        top_values = [out[i] for i in top_idx]
+        top_predictions = [(self.inv_action_dict[top_idx[i]], top_values[i]) for i in range(len(top_idx))]
+        print(top_predictions)
         # TODO: Filter out unavailable and unwanted actions
-        action_idx = np.random.choice(list(range(len(self.action_dict))), 1, p=out[0])
+        action_idx = np.random.choice(list(range(len(self.action_dict))), 1, p=out)
         action_name = self.inv_action_dict[action_idx[0]]
         action_type = action_name.split("_")[0]
         build_name = action_name.split("_")[1]
+        print(build_name)
 
         if action_type == "train":
             print(f"ProductionManager: train {build_name}.")
@@ -295,7 +328,7 @@ class MLPProductionManager(ProductionManager):
                 print(f"Unknown unit type {unit_type}")
             if self.bot.can_afford(unit_type) and self.building_manager.can_train(unit_type):
                 self.refresh = True
-                print(f"ProductionManager: train {build_name}.")
+                # print(f"ProductionManager: train {build_name}.")
                 await self.building_manager.train(unit_type)
             else:
                 print(f"ProductionManager: cannot train {build_name}.")
@@ -306,6 +339,7 @@ class MLPProductionManager(ProductionManager):
             if self.worker_manager.has_unstarted_plan():
                 self.build_action = unit_type
             else:
+                print(f"ProductionManager: cannot build {build_name} - building something else.")
                 await self.worker_manager.build(unit_type)
         elif action_type == "research":
             print(f"ProductionManager: research {build_name}.")
@@ -315,7 +349,7 @@ class MLPProductionManager(ProductionManager):
             print(f"ProductionManager: upgrade {build_name}.")
             upgrade_type = UnitTypeId[build_name.upper()]
             if self.building_manager.can_upgrade(upgrade_type):
-                print(f"ProductionManager: upgrade {upgrade_type}.")
+                # print(f"ProductionManager: upgrade {upgrade_type}.")
                 await self.building_manager.upgrade(upgrade_type)
             else:
                 print(f"ProductionManager: cannot upgrade {upgrade_type}.")
@@ -325,7 +359,7 @@ class MLPProductionManager(ProductionManager):
             unit_type = UnitTypeId[build_name.upper()]
             if self.bot.can_afford(unit_type) and self.building_manager.can_add_on(unit_type):
                 self.refresh = True
-                print(f"ProductionManager: build {build_name}.")
+                # print(f"ProductionManager: build {build_name}.")
                 await self.building_manager.add_on(unit_type)
             else:
                 print(f"ProductionManager: cannot build {build_name}.")
@@ -338,13 +372,19 @@ class MLPProductionManager(ProductionManager):
 
         # print(f"Bot's known enemy units: {self.bot.known_enemy_units | self.bot.known_enemy_structures}")
 
-    def _init_research_abilites(self):
+    def _init_abilites(self):
         print("Initializing abilities")
         for upgrade_type in UpgradeId:
             ability = self.bot.game_data().upgrades[upgrade_type.value].research_ability
             if ability is None:
                 continue
             self.research_abilities[ability.id] = upgrade_type
+        for unit_type in UnitTypeId:
+            if unit_type.value in self.bot.game_data().units:
+                ability = self.bot.game_data().units[unit_type.value].creation_ability
+                if ability is None:
+                    continue
+                self.unit_abilities[ability.id] = unit_type
 
     async def on_building_construction_started(self, unit):
         if self.build_action is not None and self.build_action == unit.type_id:

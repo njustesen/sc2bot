@@ -155,7 +155,7 @@ class SimpleWorkerManager(WorkerManager):
                     # Wall-in
                     depots = self.bot.units(UnitTypeId.SUPPLYDEPOT) | self.bot.units(UnitTypeId.SUPPLYDEPOTLOWERED)
                     placement_positions = []
-                    if building == UnitTypeId.SUPPLYDEPOT:
+                    if building == UnitTypeId.SUPPLYDEPOT and self.bot.units(UnitTypeId.BUNKER).amount == 0:
                         placement_positions = self.bot.main_base_ramp.corner_depots
                         if depots:
                             placement_positions = {d for d in placement_positions if
