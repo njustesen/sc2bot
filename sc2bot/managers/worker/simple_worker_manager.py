@@ -45,21 +45,21 @@ class SimpleWorkerManager(WorkerManager):
 
     async def run(self):
 
-        if self.bot.iteration % 20 == 0:
+        if self.bot.iteration % 10 == 0:
             for idle_worker in self.bot.workers.idle:
                 if self.scouting_worker is None or self.scouting_worker.tag != idle_worker.tag:
                     mf = self.bot.state.mineral_field.closest_to(idle_worker)
                     self.actions.append(idle_worker.gather(mf))
 
-            for building in self.bot.units.structure.ready:
-                if building.health < building.health_max:
-                    found = False
-                    for repair_job in self.repair_jobs:
-                        if repair_job.building == building:
-                            found = True
-                            break
-                    if not found:
-                        self.repair_jobs.append(RepairJob(building))
+        for building in self.bot.units.structure.ready:
+            if building.health < building.health_max:
+                found = False
+                for repair_job in self.repair_jobs:
+                    if repair_job.building.tag == building.tag:
+                        found = True
+                        break
+                if not found:
+                    self.repair_jobs.append(RepairJob(building))
 
         if self.scouting_worker is not None:
             for unit in self.bot.known_enemy_units.not_structure:
@@ -82,7 +82,7 @@ class SimpleWorkerManager(WorkerManager):
 
             # Worker died
             if build_job.worker is None:
-                build_job.worker = self._get_builder()
+                build_job.worker = self._get_builder(build_job.location)
                 if build_job.worker is not None:
                     if build_job.under_construction:
                         self.actions.append(build_job.worker.repair(build_job.location))
@@ -100,26 +100,49 @@ class SimpleWorkerManager(WorkerManager):
 
         self.build_jobs = [build_job for build_job in self.build_jobs if not build_job.done]
 
+        print(len(self.repair_jobs), "repair jobs")
         for repair_job in self.repair_jobs:
+            print("-", repair_job.building.type_id)
 
             # Check if done
-            if repair_job.building.health > repair_job.building.health_max:
+            if repair_job.building is None or repair_job.building.health * 1.05 >= repair_job.building.health_max:
                 repair_job.done = True
 
             # Job cancelled or completed
             if repair_job.done:
-                for worker in repair_job.workers:
-                    if worker is not None:
-                        minerals = self.bot.state.units.mineral_field.closest_to(self.bot.start_location)
-                        self.actions.append(repair_job.worker.gather(minerals))
+                #for worker in repair_job.workers:
+                    #if worker is not None:
+                        #minerals = self.bot.state.units.mineral_field.closest_to(worker)
+                        #self.actions.append(worker.gather(minerals))
+                await self.distribute()
                 continue
 
             # Worker died
             for worker in repair_job.workers:
                 if worker is None:
-                    w = self._get_builder()
-                    repair_job.worker.append(w)
-                    self.actions.append(worker.repair(repair_job.building.location))
+                    w = self._get_repairer(repair_job)
+                    if w is not None:
+                        repair_job.workers.append(w)
+                        self.actions.append(w.repair(repair_job.building))
+                else:
+                    self.actions.append(worker.repair(repair_job.building))
+
+            repair_job.workers = [worker for worker in repair_job.workers if worker is not None]
+
+            # Need extra workers
+            if len(repair_job.workers) < 3 and repair_job.building.type_id in [UnitTypeId.COMMANDCENTER, UnitTypeId.ORBITALCOMMAND,
+                                       UnitTypeId.PLANETARYFORTRESS, UnitTypeId.BUNKER]:
+                w2 = self._get_repairer(repair_job)
+                if w2 is not None:
+                    repair_job.workers.append(w2)
+                    self.actions.append(w2.repair(repair_job.building))
+
+            # No worker
+            if len(repair_job.workers) == 0:
+                w = self._get_repairer(repair_job)
+                if w is not None:
+                    repair_job.workers.append(w)
+                    self.actions.append(w.repair(repair_job.building))
 
         self.repair_jobs = [repair_job for repair_job in self.repair_jobs if not repair_job.done]
 
@@ -211,6 +234,7 @@ class SimpleWorkerManager(WorkerManager):
         for w in self.bot.workers:
             self.actions.append(w.attack(location))
         '''
+        pass
 
     async def defend(self, location):
         for w in self.bot.workers:
@@ -224,11 +248,26 @@ class SimpleWorkerManager(WorkerManager):
                 if location is None:
                     return ws.furthest_to(ws.center)
                 else:
-                    if ws.moving.exists and ws.moving.gathering.exists:
-                        return ws.moving.gathering.closest_to(location)
-                    else:
-                        return ws.closest_to(location)
+                    return ws.closest_to(location)
         return None
+
+    def _get_repairer(self, repair_job):
+        ws = self.bot.workers.gathering
+        if ws:  # if workers found
+            not_scouts = Units([w for w in ws if self.scouting_worker is None or w.tag != self.scouting_worker.tag], self.bot.game_data())
+            not_reparing = []
+            for repair_job in self.repair_jobs:
+                tags = [worker.tag for worker in repair_job.workers if worker is not None]
+                for worker in not_scouts:
+                    if worker.tag not in tags:
+                        not_reparing.append(worker)
+            not_reparing = Units(not_reparing, self.bot.game_data())
+            if not_reparing.amount > 0:
+                return ws.closest_to(repair_job.building)
+        return None
+
+    async def distribute(self):
+        self.distribute_workers()
 
     def distribute_workers(self, performanceHeavy=True, onlySaturateGas=False):
         # expansion_locations = self.expansion_locations
@@ -404,6 +443,11 @@ class SimpleWorkerManager(WorkerManager):
 
         # Check if
         for repair_job in self.repair_jobs:
+            for i in range(len(repair_job.workers)):
+                worker = repair_job.workers[i]
+                if worker is not None and worker.tag == unit_tag:
+                    repair_job.workers[i] = None
+                    break
             if repair_job.building.tag == unit_tag:
                 repair_job.done = True
                 break

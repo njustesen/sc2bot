@@ -88,7 +88,6 @@ class Squad:
                 else:
                     self._basic_attack(unit, closest_enemy_unit)
 
-
             else:
                 defending_position = random.choice(self.bot.main_base_ramp.lower())
 
