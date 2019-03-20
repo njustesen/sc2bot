@@ -100,7 +100,7 @@ class Squad:
                 elif unit.type_id == UnitTypeId.SIEGETANKSIEGED:
                     if closest_enemy_unit.distance_to(unit.position) < 0.2 * range_own:
                         self.actions.append(unit(AbilityId.UNSIEGE_UNSIEGE))
-                        self.actions.append(unit.move(self.main_base_ramp.higher()))
+                        # It should move on the next iteration, since it's a siegetank again
                 # Basic attack
                 else:
                     self._basic_attack(unit, closest_enemy_unit)
