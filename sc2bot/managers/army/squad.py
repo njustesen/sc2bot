@@ -61,7 +61,6 @@ class Squad:
         if closest_enemy_unit is not None:
             if order == "attack" or closest_enemy_unit.distance_to(unit.position) < range_own:
 
-                # Basic attack
                 # Micro for widowmines
                 '''
                 If we're close to the enemy, burrow down.
@@ -75,6 +74,17 @@ class Squad:
                     '''
                     # for unit in self.units:
                     #     self.actions.append(unit.move(self.bot.start_location))
+                # Micro for medivacs
+                '''
+                If we have bio, move to the centroid of the squad; else, move away
+                '''
+                elif unit.type_id == UnitTypeId.MEDIVAC:
+                    if self.bot.units(UnitTypeId.MARINE) or self.bot.units(UnitTypeId.MARAUDER):
+                        centroid = self.units.closest_to(self.units.center).position
+                        self.actions.append(unit.move(centroid))
+                    else:
+                        self.actions.append(unit.move(self.main_base_ramp.higher()))
+                # Basic attack
                 else:
                     self._basic_attack(unit, closest_enemy_unit)
 
@@ -99,6 +109,8 @@ class Squad:
                     
                     if unit.position == defending_position and not unit.is_burrowed():
                         self.actions.append(unit(AbilityId.BURROWDOWN_WIDOWMINE))
+                elif unit.type_id == UnitTypeId.MEDIVAC:
+                    self.actions.append(unit.move(defending_position))
                 else:
                     if random.randint(0, len(self.units)) == 0:
                         # Go into bunker
