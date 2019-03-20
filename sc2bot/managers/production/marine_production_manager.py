@@ -39,7 +39,7 @@ class MarineProductionManager(ProductionManager):
             elif self.bot.can_afford(UnitTypeId.MARINE) and self.building_manager.can_train(UnitTypeId.MARINE):
                 self.next_iteration += 2
                 await self.building_manager.train(UnitTypeId.MARINE)
-            elif self.bot.can_afford(UnitTypeId.BARRACKS) and self.bot.units(UnitTypeId.BARRACKS).amount < 3 * self.bot.units(UnitTypeId.COMMANDCENTER).amount:
+            elif self.bot.can_afford(UnitTypeId.BARRACKS) and self.bot.units(UnitTypeId.BARRACKS).amount < 1:
                 self.next_iteration += 20
                 await self.worker_manager.build(UnitTypeId.BARRACKS)
             elif self.bot.units(UnitTypeId.BUNKER).amount < self.bot.units(UnitTypeId.COMMANDCENTER).amount:

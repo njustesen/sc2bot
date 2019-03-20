@@ -246,6 +246,8 @@ class SimpleBuildingManager(BuildingManager):
         return False
 
     def is_legal_training_action(self, unit_type):
+        if unit_type == UnitTypeId.NUKE:
+            return False
         return self.can_train(unit_type, must_be_ready=False, must_afford=False)
 
     def is_legal_upgrade_action(self, upgrade_type):

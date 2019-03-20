@@ -66,7 +66,8 @@ class Squad:
 
             else:
 
-                if random.randint(0, len(self.units)) == 0:
+                # Limit the amount of calls
+                if random.randint(0, int(len(self.units)/4)) == 0:
 
                     # Go into bunker
                     bunkers = self.bot.units(UnitTypeId.BUNKER).ready
@@ -74,7 +75,6 @@ class Squad:
                         for bunker in bunkers:
                             if bunker.cargo_used < bunker.cargo_max:
                                 self.actions.append(bunker(AbilityId.LOAD_BUNKER, unit))
-                                # self.actions.append(unit.move(bunker))
                                 return
 
                     # Give some slack if kinda close
