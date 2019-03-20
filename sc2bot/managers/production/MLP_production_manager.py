@@ -56,6 +56,7 @@ class MLPProductionManager(ProductionManager):
         self.next_loop = 0
 
         self.locked = False
+        self.main_base = None
     
     def prepare_input(self):
 
@@ -275,8 +276,15 @@ class MLPProductionManager(ProductionManager):
 
     async def run(self):
 
+        # Initialize in the first frame
         if len(self.research_abilities) == 0:
             self._init_abilites()
+            self.main_base = self.bot.units(UnitTypeId.COMMANDCENTER)[0]
+
+        # Rebuild main base if we lost it
+        if self.main_base is None:
+            self.worker_manager.build(UnitTypeId.COMMANDCENTER, self.bot.start_location)
+            return
 
         # Are we supply blocked?
         required = self.bot.game_data().units[self.train_action.value]._proto.food_required if self.train_action is not None else 0
@@ -419,3 +427,9 @@ class MLPProductionManager(ProductionManager):
     async def on_building_construction_started(self, unit):
         if self.build_action is not None and self.build_action == unit.type_id:
             self.build_action = None
+        if unit.type_id == UnitTypeId.COMMANDCENTER and unit.position.distance_to(self.bot.start_location) < 2:
+            self.main_base = unit
+
+    async def on_unit_destroyed(self, unit_tag):
+        if unit_tag == self.main_base.tag:
+            self.main_base = None

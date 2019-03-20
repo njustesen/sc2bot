@@ -134,7 +134,7 @@ class SimpleBuildingManager(BuildingManager):
                 trainers.append(UnitTypeId.ORBITALCOMMAND)
                 trainers.append(UnitTypeId.PLANETARYFORTRESS)
             for trainer in trainers:
-                buildings = sorted(self.bot.units(trainer).ready, key=lambda x: len(x.orders), reverse=True)
+                buildings = sorted(self.bot.units(trainer).ready, key=lambda x: len(x.orders))
                 for building in buildings:
 
                     # Free spot in queue
@@ -250,6 +250,8 @@ class SimpleBuildingManager(BuildingManager):
         return self.can_upgrade(upgrade_type, must_be_ready=False, must_afford=False)
 
     def is_legal_build_action(self, build_type):
+        if build_type == UnitTypeId.REFINERY and self.bot.units(UnitTypeId.REFINERY).amount >= self.bot.units(UnitTypeId.COMMANDCENTER).amount:
+            return self.worker_manager.is_building(UnitTypeId.COMMANDCENTER)
         if build_type in self.add_on_at:
             at = self.add_on_at[build_type]
             if not self.can_add_on(build_type) and not self.worker_manager.is_building(at):
