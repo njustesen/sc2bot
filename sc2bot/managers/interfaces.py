@@ -3,14 +3,18 @@ class Manager:
     def __init__(self, bot):
         self.bot = bot
         self.actions = []
+        self.locked = False
 
     async def execute(self):
-        if len(self.actions) > 0:
-            actions = [action for action in self.actions]
-            self.actions = []
-            await self.bot.do_actions(actions)
-        else:
-            await self.run()
+        if not self.locked:
+            self.locked = True
+            if len(self.actions) > 0:
+                actions = [action for action in self.actions]
+                self.actions = []
+                await self.bot.do_actions(actions)
+            else:
+                await self.run()
+            self.locked = False
 
     async def run(self):
         """ Override this in your manager class. """
@@ -98,8 +102,9 @@ class WorkerManager(Manager):
 
 class BuildingManager(Manager):
 
-    def __init__(self, bot):
+    def __init__(self, bot, worker_manager):
         super().__init__(bot)
+        self.worker_manager = worker_manager
 
     async def run(self):
         raise NotImplementedError("Must be overridden by subclass")

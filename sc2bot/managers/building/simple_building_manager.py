@@ -6,8 +6,8 @@ from sc2.ids.upgrade_id import UpgradeId
 
 class SimpleBuildingManager(BuildingManager):
 
-    def __init__(self, bot):
-        super().__init__(bot)
+    def __init__(self, bot, worker_manager):
+        super().__init__(bot, worker_manager)
 
         self.trained_at = {
             UnitTypeId.BANSHEE: UnitTypeId.STARPORT,
@@ -134,7 +134,8 @@ class SimpleBuildingManager(BuildingManager):
                 trainers.append(UnitTypeId.ORBITALCOMMAND)
                 trainers.append(UnitTypeId.PLANETARYFORTRESS)
             for trainer in trainers:
-                for building in self.bot.units(trainer).ready:
+                buildings = sorted(self.bot.units(trainer).ready, key=lambda x: len(x.orders), reverse=True)
+                for building in buildings:
 
                     # Free spot in queue
                     if building.add_on_tag != 0 and building.add_on_tag in self.bot.own_units and self.bot.own_units[building.add_on_tag].type_id == UnitTypeId.BARRACKSREACTOR:
@@ -221,7 +222,7 @@ class SimpleBuildingManager(BuildingManager):
                         return True
         return False
 
-    def can_upgrade(self, upgrade_type, must_be_ready=True, must_afford=False):
+    def can_upgrade(self, upgrade_type, must_be_ready=True, must_afford=True):
         ability = None
         if upgrade_type == UnitTypeId.ORBITALCOMMAND:
             ability = AbilityId.UPGRADETOORBITAL_ORBITALCOMMAND
@@ -234,7 +235,9 @@ class SimpleBuildingManager(BuildingManager):
                 return self.bot.units(UnitTypeId.COMMANDCENTER).exists
         return False
 
-    def can_add_on(self, add_on):
+    def can_add_on(self, add_on, must_afford=True):
+        if must_afford and not self.bot.can_afford(add_on):
+            return False
         for building in self.bot.units(self.add_on_at[add_on]).ready:
             if building.add_on_tag == 0:
                 return True
@@ -247,9 +250,13 @@ class SimpleBuildingManager(BuildingManager):
         return self.can_upgrade(upgrade_type, must_be_ready=False, must_afford=False)
 
     def is_legal_build_action(self, build_type):
+        if build_type in self.add_on_at:
+            at = self.add_on_at[build_type]
+            if not self.can_add_on(build_type) and not self.worker_manager.is_building(at):
+                return False
         if build_type not in self.requirements:
             return True
         for requirement in self.requirements[build_type]:
-            if self.bot.units(requirement).amount == 0:
+            if self.bot.units(requirement).amount == 0 and not self.worker_manager.is_building(requirement):
                 return False
         return True

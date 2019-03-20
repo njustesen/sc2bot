@@ -228,6 +228,9 @@ class MLPProductionManager(ProductionManager):
 
     async def _execute_planned_action(self):
         if self.train_action is not None:  # If train action is planned
+            if not self.building_manager.is_legal_training_action(self.train_action):
+                self.train_action = None
+                return
             if self.bot.can_afford(self.train_action) and self.building_manager.can_train(self.train_action):
                 print(f"ProductionManager: can now train {self.train_action}.")
                 self.locked = True
@@ -235,18 +238,29 @@ class MLPProductionManager(ProductionManager):
                 self.train_action = None
                 self.locked = False
         elif self.upgrade_action is not None:  # If upgrade action is planned
+            if not self.building_manager.is_legal_upgrade_action(self.upgrade_action):
+                self.upgrade_action = None
+                return
             if self.bot.can_afford(self.upgrade_action) and self.building_manager.can_upgrade(self.upgrade_action):
                 print(f"ProductionManager: can now upgrade {self.upgrade_action}.")
+                self.locked = True
                 await self.building_manager.upgrade(self.upgrade_action)
                 self.upgrade_action = None
                 self.locked = False
         elif self.add_on_action is not None:  # If add on action is planned
+            if not self.building_manager.is_legal_build_action(self.add_on_action):
+                self.add_on_action = None
+                return
             if self.bot.can_afford(self.add_on_action) and self.building_manager.can_add_on(self.add_on_action):
                 print(f"ProductionManager: can now build {self.add_on_action}.")
+                self.locked = True
                 await self.building_manager.add_on(self.add_on_action)
                 self.add_on_action = None
                 self.locked = False
         elif self.build_action is not None:  # If add on action is planned
+            if not self.building_manager.is_legal_build_action(self.build_action):
+                self.build_action = None
+                return
             if not self.worker_manager.has_unstarted_plan():
                 self.locked = True
                 print(f"ProductionManager: can now build {self.build_action}.")
@@ -282,14 +296,14 @@ class MLPProductionManager(ProductionManager):
             self._clear_plans()
 
         # Execute planned actions
-        if self.locked:
-            print("Locked")
-        elif self._has_planned_action():
+        #if self.locked:
+        #    # print("Locked")
+        if self._has_planned_action():
             # print("Has plan")
             await self._execute_planned_action()
         else:
             print("Requesting")
-            self.locked = True
+            #self.locked = True
             # Only request model every 22 frames
             # if self.bot.state.observation.game_loop >= self.next_loop:
             self.refresh = False
@@ -298,7 +312,7 @@ class MLPProductionManager(ProductionManager):
 
             # Request model
             await self._request_model()
-            self.locked = False
+            #self.request_locked = False
 
     async def _request_model(self):
         x = self.prepare_input()

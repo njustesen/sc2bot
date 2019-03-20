@@ -2,6 +2,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.ability_id import AbilityId
 import math
 from sc2.units import Units
+from sc2.position import Point2, Point3
 
 
 class Squad:
@@ -21,12 +22,14 @@ class Squad:
             await self.bot.do_actions(actions)
         else:
             if self.order == "attack":
+                centroid = self.units.closest_to(self.units.center).position
                 for unit in self.units:
                     squad_size = self.units.amount + 2
-                    distance = unit.distance_to(self.units.center)
+                    distance = unit.distance_to(centroid)
                     # print("Squad size: ", squad_size, ", distance: ", distance)
-                    if distance > squad_size:
-                        self.actions.append(unit.move(self.units.center))
+                    if distance > squad_size/2:
+                        #self.actions.append(unit.move(self.units.center))
+                        self.actions.append(unit.move(centroid))
                     else:
                         self.unit_move(unit, self.target, self.order)
             elif self.order == "defend":
@@ -73,20 +76,25 @@ class Squad:
                                 # self.actions.append(unit.move(bunker))
                                 return
 
-                # Give some slack if kinda close
-                if unit.distance_to(target) <= 15 and self.bot.iteration % 20 != 0:
-                    return
+                    # Give some slack if kinda close
+                    if unit.distance_to(target) <= 15 and self.bot.iteration % 20 != 0:
+                        return
 
-                # Otherwise hurry up
-                if unit.distance_to(target) > 5:
-                    self.actions.append(unit.move(target))
+                    # Otherwise hurry up
+                    if unit.distance_to(target) > 5:
+                        self.actions.append(unit.move(target))
 
     def _basic_attack(self, unit, closest_enemy_unit):
         range = unit.air_range if closest_enemy_unit.is_flying else unit.ground_range
         distance = closest_enemy_unit.distance_to(unit)
         # print("Range=", range)
         # print("Distance=", distance)
-        if distance < range * 0.8:
+        if distance < range * 0.8 and closest_enemy_unit.distance_to(self.bot.start_location) > unit.distance_to(self.bot.start_location):
+            #direction_away = closest_enemy_unit.position.direction_vector(unit.position)
+            #length = direction_away.distance2_to(Point2((0, 0)))
+            #unit_vector = Point2((direction_away.x / length, direction_away.y / length))
+            #self.actions.append(unit.move(self.bot.start_location))
+            #position = unit.position + unit_vector * (range*0.1)
             self.actions.append(unit.move(self.bot.start_location))
         else:
             if not unit.is_attacking:

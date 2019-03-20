@@ -27,7 +27,7 @@ class TerranBot(sc2.BotAI):
         self.worker_manager = SimpleWorkerManager(self)
         self.army_manager = AdvancedArmyManager(self)
         self.assault_manager = ValueBasedAssaultManager(self, self.army_manager, self.worker_manager)
-        self.building_manager = SimpleBuildingManager(self)
+        self.building_manager = SimpleBuildingManager(self, self.worker_manager)
         self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "models_without_time/TvZ_3x256_no_frame_id_1552989984_state_dict")
         # self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "TvZ_3x256_features_2D_1552906112", features=[0.5, 0.5])
         # self.production_manager = SimpleProductionManager(self, self.worker_manager, self.building_manager)
