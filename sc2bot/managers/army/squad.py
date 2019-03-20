@@ -3,6 +3,7 @@ from sc2.ids.ability_id import AbilityId
 import math
 from sc2.units import Units
 from sc2.position import Point2, Point3
+import random
 
 
 class Squad:
@@ -65,7 +66,7 @@ class Squad:
 
             else:
 
-                if self.bot.iteration % 20 == 0:
+                if random.randint(0, len(self.units)) == 0:
 
                     # Go into bunker
                     bunkers = self.bot.units(UnitTypeId.BUNKER).ready

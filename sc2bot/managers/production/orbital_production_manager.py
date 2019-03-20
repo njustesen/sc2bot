@@ -5,7 +5,7 @@ from sc2.ids.ability_id import AbilityId
 from sc2.ids.upgrade_id import UpgradeId
 
 
-class SimpleProductionManager(ProductionManager):
+class OrbitalProductionManager(ProductionManager):
 
     def __init__(self, bot, worker_manager, building_manager):
         super().__init__(bot, worker_manager, building_manager)
@@ -30,9 +30,6 @@ class SimpleProductionManager(ProductionManager):
             elif self.bot.units(UnitTypeId.REFINERY).amount < 1:
                 self.next_iteration += 2
                 await self.worker_manager.build(UnitTypeId.REFINERY)
-            elif self.bot.can_afford(UnitTypeId.BARRACKSREACTOR) and self.bot.units(UnitTypeId.BARRACKSREACTOR).amount < self.bot.units(UnitTypeId.BARRACKS).amount and self.bot.units(UnitTypeId.BARRACKS).ready.exists and self.bot.can_afford(UnitTypeId.REFINERY):
-                self.next_iteration += 2
-                await self.building_manager.add_on(UnitTypeId.BARRACKSREACTOR)
             elif (self.bot.units(UnitTypeId.COMMANDCENTER).idle.exists or self.bot.units(UnitTypeId.ORBITALCOMMAND).idle.exists) and self.bot.units(UnitTypeId.SCV).amount < 20 * self.bot.units(UnitTypeId.COMMANDCENTER).amount:
                 self.next_iteration += 2
                 await self.building_manager.train(UnitTypeId.SCV)
@@ -46,7 +43,10 @@ class SimpleProductionManager(ProductionManager):
                 self.next_iteration += 40
                 await self.worker_manager.build(UnitTypeId.BUNKER)
             elif self.bot.can_afford(UnitTypeId.COMMANDCENTER):
-                self.next_iteration += 50
+                self.next_iteration += 1
                 await self.worker_manager.build(UnitTypeId.COMMANDCENTER)
+            elif self.building_manager.can_upgrade(UnitTypeId.ORBITALCOMMAND) and self.bot.can_afford(UnitTypeId.ORBITALCOMMAND):
+                self.next_iteration += 2
+                await self.building_manager.upgrade(UnitTypeId.ORBITALCOMMAND)
             else:
                 self.next_iteration += 1

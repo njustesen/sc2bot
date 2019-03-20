@@ -175,8 +175,10 @@ class SimpleBuildingManager(BuildingManager):
 
     async def scan(self, location):
         for oc in self.bot.units(UnitTypeId.ORBITALCOMMAND).filter(lambda x: x.energy >= 50):
-            # print("Scanning")
+            print("Scanning at ", location)
             self.actions.append(oc(AbilityId.SCANNERSWEEP_SCAN, location))
+            # await self.bot.do_actions([oc(AbilityId.SCANNERSWEEP_SCAN, location)])
+            # self.actions.append(oc(AbilityId.SCAN_MOVE, location))
             return
 
     async def upgrade(self, upgrade):

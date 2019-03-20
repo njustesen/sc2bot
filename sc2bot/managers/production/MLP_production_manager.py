@@ -283,7 +283,7 @@ class MLPProductionManager(ProductionManager):
 
         # Rebuild main base if we lost it
         if self.main_base is None:
-            self.worker_manager.build(UnitTypeId.COMMANDCENTER, self.bot.start_location)
+            await self.worker_manager.build(UnitTypeId.COMMANDCENTER, self.bot.start_location)
             return
 
         # Are we supply blocked?
@@ -431,5 +431,5 @@ class MLPProductionManager(ProductionManager):
             self.main_base = unit
 
     async def on_unit_destroyed(self, unit_tag):
-        if unit_tag == self.main_base.tag:
+        if self.main_base is not None and unit_tag == self.main_base.tag:
             self.main_base = None
