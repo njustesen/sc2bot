@@ -126,7 +126,13 @@ class MLPProductionManager(ProductionManager):
                     upgrade_type = self.research_abilities[order.ability.id]
                     upgrades_progress[upgrade_type.name.upper()] = order.progress
 
-        # Name fixes
+        if "SIEGETANKSIEGED" in units:
+            if "SIEGETANK" in units:
+                units["SIEGETANK"] = units["SIEGETANK"] + units["SIEGETANKSIEGED"]
+            else:
+                units["SIEGETANK"] = units["SIEGETANKSIEGED"]
+
+                # Name fixes
         if "SUPPLYDEPOTLOWERED" in units:
             if "SUPPLYDEPOT" in units:
                 units["SUPPLYDEPOT"] = units["SUPPLYDEPOT"] + units["SUPPLYDEPOTLOWERED"]

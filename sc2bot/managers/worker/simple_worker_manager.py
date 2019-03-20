@@ -45,11 +45,12 @@ class SimpleWorkerManager(WorkerManager):
 
     async def run(self):
 
-        if self.bot.iteration % 10 == 0:
-            for idle_worker in self.bot.workers.idle:
-                if self.scouting_worker is None or self.scouting_worker.tag != idle_worker.tag:
-                    mf = self.bot.state.mineral_field.closest_to(idle_worker)
-                    self.actions.append(idle_worker.gather(mf))
+        for idle_worker in self.bot.units(UnitTypeId.SCV).idle:
+            minerals = self.bot.state.units.mineral_field.closest_to(self.bot.start_location)
+            self.actions.append(idle_worker.gather(minerals))
+
+        if self.bot.iteration % 100 == 0:
+            await self.distribute()
 
         for building in self.bot.units.structure.ready:
             if building.health < building.health_max:
@@ -246,9 +247,9 @@ class SimpleWorkerManager(WorkerManager):
             not_scouts = Units([w for w in ws if self.scouting_worker is None or w.tag != self.scouting_worker.tag], self.bot.game_data())
             if not_scouts.amount > 0:
                 if location is None:
-                    return ws.furthest_to(ws.center)
+                    return not_scouts.furthest_to(not_scouts.center)
                 else:
-                    return ws.closest_to(location)
+                    return not_scouts.closest_to(location)
         return None
 
     def _get_repairer(self, repair_job):
@@ -396,7 +397,7 @@ class SimpleWorkerManager(WorkerManager):
         for distance in range(placement_step, max_distance, placement_step):
 
             h = 2
-            if building is UnitTypeId.FACTORY:
+            if building == UnitTypeId.FACTORY:
                 h = 1
             possible_positions = [Point2(p).offset(near).to2 for p in (
                     [(dx, -distance/h) for dx in range(-distance, distance + 1, placement_step)] +
