@@ -56,6 +56,19 @@ class Squad:
             range_own = unit.ground_range if not closest_enemy_unit.is_flying else unit.air_range
 
         # TODO: Is the closest enemy closer to our base than us -> then get mad?
+        # TODO: Define a more general defensive position, maybe even a list of them
+
+        # Micro for medivacs
+        '''
+        If we have bio, move to the centroid of the squad; else, move away
+        '''
+        if unit.type_id == UnitTypeId.MEDIVAC:
+            if self.bot.units(UnitTypeId.MARINE) or self.bot.units(UnitTypeId.MARAUDER):
+                centroid = self.units.closest_to(self.units.center).position
+                self.actions.append(unit.move(centroid))
+            else:
+                # Moving to base if we don't have bio
+                self.actions.append(unit.move(self.main_base_ramp.higher()))
 
         # Decide what to do
         if closest_enemy_unit is not None:
@@ -74,15 +87,19 @@ class Squad:
                     '''
                     # for unit in self.units:
                     #     self.actions.append(unit.move(self.bot.start_location))
-                # Micro for medivacs
+                # Micro for tanks
                 '''
-                If we have bio, move to the centroid of the squad; else, move away
+                When we're close to the enemy, siege up
                 '''
-                elif unit.type_id == UnitTypeId.MEDIVAC:
-                    if self.bot.units(UnitTypeId.MARINE) or self.bot.units(UnitTypeId.MARAUDER):
-                        centroid = self.units.closest_to(self.units.center).position
-                        self.actions.append(unit.move(centroid))
+                elif unit.type_id == UnitTypeId.SIEGETANK:
+                    # If the unit is too close, move back
+                    if closest_enemy_unit.distance_to(unit.position) < 0.2 * range_own: # (?)
+                        self.actions.append(unit.move(self.main_base_ramp.higher()))
                     else:
+                        self.actions.append(unit(AbilityId.SIEGEMODE_SIEGEMODE))
+                elif unit.type_id == UnitTypeId.SIEGETANKSIEGED:
+                    if closest_enemy_unit.distance_to(unit.position) < 0.2 * range_own:
+                        self.actions.append(unit(AbilityId.UNSIEGE_UNSIEGE))
                         self.actions.append(unit.move(self.main_base_ramp.higher()))
                 # Basic attack
                 else:
@@ -97,7 +114,8 @@ class Squad:
                 then bring it back
 
                 TODO: For now, it's burrowing in the lower part of the main ramp, find
-                a way to bury it in the higher part of one of natural's ramps.
+                a way to bury it in the higher part of one of natural's ramps. This ties in
+                with defining a "global" defensive spot.
                 '''
                 if unit.type_id == UnitTypeId.WIDOWMINE:
                     if unit.position not in self.bot.main_base_ramp.lower():
@@ -108,8 +126,21 @@ class Squad:
                     
                     if unit.position == defending_position and not unit.is_burrowed():
                         self.actions.append(unit(AbilityId.BURROWDOWN_WIDOWMINE))
+                # Medivac micro
                 elif unit.type_id == UnitTypeId.MEDIVAC:
                     self.actions.append(unit.move(defending_position))
+                # Siegetank micro
+                elif unit.type_id == UnitTypeId.SIEGETANK:
+                    if unit.distance_to(self.bot.main_base_ramp.lower()) > 10:
+                        self.actions.append(unit.move(defending_position))
+                    else:
+                        self.actions.append(unit(AbilityId.SIEGEMODE_SIEGEMODE))
+                elif unit.type_id == UnitTypeId.SIEGETANKSIEGED:
+                    if unit.distance_to(self.bot.main_base_ramp.lower()) > 10:
+                        self.actions.append(unit(AbilityId.UNSIEGE_UNSIEGE))
+                    # It should move, since in the next iteration it's no longer
+                    # SIEGETANKSIEGED but rather a SIEGETANK
+                # basic attack for other units
                 else:
                     if random.randint(0, len(self.units)) == 0:
                         # Go into bunker
