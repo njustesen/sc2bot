@@ -11,6 +11,7 @@ from sc2bot.managers.army.simple_army_manager import SimpleArmyManager
 from sc2bot.managers.army.advanced_army_manager import AdvancedArmyManager
 from sc2bot.managers.building.simple_building_manager import SimpleBuildingManager
 from sc2bot.managers.production.marine_production_manager import MarineProductionManager
+from sc2bot.managers.production.reaper_marine_production_manager import ReaperMarineProductionManager
 from sc2bot.managers.production.orbital_production_manager import OrbitalProductionManager
 from sc2bot.managers.production.mlp_production_manager import MLPProductionManager
 from sc2bot.managers.production.mlp_model import Net
@@ -29,9 +30,10 @@ class TerranBot(sc2.BotAI):
         self.army_manager = AdvancedArmyManager(self)
         self.assault_manager = ValueBasedAssaultManager(self, self.army_manager, self.worker_manager)
         self.building_manager = SimpleBuildingManager(self, self.worker_manager)
-        self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "models_without_time/TvZ_3x256_no_frame_id_1552989984_state_dict")
+        # self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "models_without_time/TvZ_3x256_no_frame_id_1552989984_state_dict")
         # self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "TvZ_3x256_features_2D_1552906112", features=[0.5, 0.5])
-        self.production_manager = MarineProductionManager(self, self.worker_manager, self.building_manager)
+        # self.production_manager = MarineProductionManager(self, self.worker_manager, self.building_manager)
+        self.production_manager = ReaperMarineProductionManager(self, self.worker_manager, self.building_manager)
         # self.production_manager = OrbitalProductionManager(self, self.worker_manager, self.building_manager)
         self.scouting_manager = SimpleScoutingManager(self, self.worker_manager, self.building_manager)
         self.managers = [self.scouting_manager, self.production_manager, self.building_manager, self.assault_manager, self.army_manager, self.worker_manager]

@@ -23,7 +23,7 @@ class Squad:
             await self.bot.do_actions(actions)
         else:
             if self.order == "attack":
-                centroid = self.units.closest_to(self.units.center).position
+                centroid = self.units.closest_to(self.units.center).position if self.units.amount > 0 else None
                 for unit in self.units:
                     squad_size = self.units.amount + 2
                     distance = unit.distance_to(centroid)
@@ -36,13 +36,39 @@ class Squad:
             elif self.order == "defend":
                 for unit in self.units:
                     self.unit_move(unit, self.target, self.order)
+            elif self.order == "harass":
+                for unit in self.units:
+                    self.harass_move(unit, self.target)
 
-    def unit_move(self, unit, target, order="attack"):
-        closest_enemy_ground_unit = self.bot.known_enemy_units.not_flying.closest_to(
-            unit) if self.bot.known_enemy_units.not_flying.exists else None
-        closest_enemy_air_unit = self.bot.known_enemy_units.flying.closest_to(
-            unit) if self.bot.known_enemy_units.flying.exists else None
-        closest_enemy_unit = None
+    def harass_move(self, unit, target):
+        harasment_home = Point2((self.bot.start_location.y, self.bot.enemy_start_locations[0].x))
+        harass_target = self.bot.known_enemy_structures.closest_to(harasment_home) if self.bot.known_enemy_structures.exists else self.bot.enemy_start_locations[0]
+
+        if abs(unit.position.x - harasment_home.x) > 15:
+            if unit.is_idle:
+                self.actions.append(unit.move(harasment_home))
+        elif unit.distance_to(target) > 25:
+            if self.bot.iteration % 10 == 0:
+                self.actions.append(unit.move(target))
+        else:
+            self.unit_move(unit, harass_target, order="harass", retreat_to=harasment_home, exclude_buildings=True)
+
+    def unit_move(self, unit, target, order="attack", retreat_to=None, exclude_buildings=False):
+        if retreat_to is None:
+            retreat_to = self.bot.start_location
+
+        if not exclude_buildings:
+            closest_enemy_ground_unit = self.bot.known_enemy_units.not_flying.exclude_type(UnitTypeId.EGG).exclude_type(UnitTypeId.LARVA).closest_to(
+                unit) if self.bot.known_enemy_units.not_flying.exclude_type(UnitTypeId.EGG).exclude_type(UnitTypeId.LARVA).exists else None
+            closest_enemy_air_unit = self.bot.known_enemy_units.flying.exclude_type(UnitTypeId.EGG).exclude_type(UnitTypeId.LARVA).closest_to(
+                unit) if self.bot.known_enemy_units.flying.exclude_type(UnitTypeId.EGG).exclude_type(UnitTypeId.LARVA).exists else None
+            closest_enemy_unit = None
+        else:
+            closest_enemy_ground_unit = self.bot.known_enemy_units.not_structure.not_flying.exclude_type(UnitTypeId.EGG).exclude_type(UnitTypeId.LARVA).closest_to(
+                unit) if self.bot.known_enemy_units.not_flying.not_structure.exclude_type(UnitTypeId.EGG).exclude_type(UnitTypeId.LARVA).exists else None
+            closest_enemy_air_unit = self.bot.known_enemy_units.not_structure.flying.exclude_type(UnitTypeId.EGG).exclude_type(UnitTypeId.LARVA).closest_to(
+                unit) if self.bot.known_enemy_units.not_structure.flying.exclude_type(UnitTypeId.EGG).exclude_type(UnitTypeId.LARVA).exists else None
+            closest_enemy_unit = None
 
         # Find closest enemy unit that the unit can attack
         if closest_enemy_ground_unit is not None and unit.can_attack_ground:
@@ -68,7 +94,7 @@ class Squad:
                 self.actions.append(unit.move(centroid))
             else:
                 # Moving to base if we don't have bio
-                self.actions.append(unit.move(self.main_base_ramp.higher()))
+                self.actions.append(unit.move(self.bot.main_base_ramp.higher()))
 
         # Decide what to do
         if closest_enemy_unit is not None:
@@ -105,8 +131,14 @@ class Squad:
                 else:
                     self._basic_attack(unit, closest_enemy_unit)
 
-            else:
-                defending_position = random.choice(self.bot.main_base_ramp.lower())
+            elif order == "harass":
+                if closest_enemy_ground_unit.ground_range >= unit.ground_range * 0.9:
+                    self.actions.append(unit.move(retreat_to))
+                else:
+                    self._basic_attack(unit, closest_enemy_unit)
+
+            elif order == "defend":
+                defending_position = random.choice(list(self.bot.main_base_ramp.lower))
 
                 # Widow mine micro
                 '''

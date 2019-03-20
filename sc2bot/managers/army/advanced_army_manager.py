@@ -20,7 +20,7 @@ class AdvancedArmyManager(ArmyManager):
             units = []
             if squad.unit_types is None:
                 for unit in self.bot.units.not_structure:
-                    if unit.type_id not in [UnitTypeId.SCV, UnitTypeId.MULE]:
+                    if unit.type_id not in [UnitTypeId.SCV, UnitTypeId.MULE, UnitTypeId.REAPER]:
                         units.append(unit)
             else:
                 for unit in self.bot.units:
@@ -32,7 +32,7 @@ class AdvancedArmyManager(ArmyManager):
         for squad in self.squads:
             await squad.run()
 
-    async def attack(self, target, unit_types=None):
+    async def unload_bunker(self, unit_types):
         # Unload bunkers
         bunkers = self.bot.units(UnitTypeId.BUNKER).ready
         for bunker in bunkers:
@@ -40,6 +40,20 @@ class AdvancedArmyManager(ArmyManager):
                 if unit_types is None or passenger.type_id in unit_types:
                     self.actions.append(bunker(AbilityId.UNLOADALL))
                     self.actions.append(bunker(AbilityId.UNLOADALL_BUNKER))
+
+    async def harass(self, target, unit_types):
+        await self.unload_bunker(unit_types)
+        new_squad = Squad(self.bot, target, unit_types, order="harass")
+        for i in range(len(self.squads)):
+            squad = self.squads[i]
+            if (set(squad.unit_types) if squad.unit_types is not None else set()) == (set(unit_types) if unit_types is not None else set()):
+                if squad.order == "harass" and squad.target == target:
+                    return
+                self.squads[i] = new_squad
+        self.squads.append(new_squad)
+
+    async def attack(self, target, unit_types=None):
+        await self.unload_bunker(unit_types)
         squad = Squad(self.bot, target, unit_types, order="attack")
         if unit_types is None:
             self.squads = [squad]
@@ -47,9 +61,8 @@ class AdvancedArmyManager(ArmyManager):
             self.squads.append(Squad(self.bot, target, unit_types, order="attack"))
 
     async def defend(self, target, unit_types=None):
-        squad = Squad(self.bot, target, unit_types, order="defend")
+        new_squad = Squad(self.bot, target, unit_types, order="defend")
         if unit_types is None:
-            self.squads = [squad]
-        else:
-            self.squads.append(Squad(self.bot, target, unit_types, order="defend"))
+            self.squads = [squad for squad in self.squads if squad.order == "harass"]
+        self.squads.append(new_squad)
 

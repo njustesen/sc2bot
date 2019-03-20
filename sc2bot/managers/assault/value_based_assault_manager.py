@@ -13,7 +13,7 @@ class ValueBasedAssaultManager(AssaultManager):
         if self.bot.iteration % 2 == 0:
 
             # Target
-            opp_base = self.bot.known_enemy_structures.random_or(self.bot.enemy_start_locations[0]).position
+            opp_base = self.bot.enemy_start_locations[0]
             opp_threats = self.bot.known_enemy_units.prefer_close_to(self.bot.start_location)
             own_base = self.bot.units.structure.closest_to(self.bot.enemy_start_locations[0]) if not opp_threats.exists else self.bot.units.structure.closest_to(opp_threats[0])
             defend = own_base if not opp_threats.exists or opp_threats[0].distance_to(own_base) > 20 else opp_threats[0]
@@ -30,6 +30,7 @@ class ValueBasedAssaultManager(AssaultManager):
 
             #print("Own army value: ", own_ground_to_ground + own_ground_to_air + own_air_to_air + own_air_to_ground)
             #print("Opp army value: ", opp_ground_to_ground + opp_ground_to_air + opp_air_to_air + opp_air_to_ground)
+            await self.army_manager.harass(opp_base, [UnitTypeId.REAPER])
 
             if own_air_to_air + own_air_to_ground + own_ground_to_air + own_ground_to_ground > opp_air_to_air + opp_air_to_ground + opp_ground_to_air + opp_ground_to_ground:
                 #print("AssaultManager: Attacking with all units", target)
@@ -39,7 +40,7 @@ class ValueBasedAssaultManager(AssaultManager):
                 await self.army_manager.attack(target, [unit.type_id for unit in self.bot.units.not_structure.flying()])
             elif own_ground_to_ground > opp_ground_to_ground and own_ground_to_air > opp_air_to_ground:
                 #print("AssaultManager: Attacking with ground units", target)
-                await self.army_manager.attack(target, [unit.type_id for unit in self.bot.units() if not unit.is_flying and unit.type_id not in [UnitTypeId.SCV, UnitTypeId.MULE]])
+                await self.army_manager.attack(target, [unit.type_id for unit in self.bot.units() if not unit.is_flying and unit.type_id not in [UnitTypeId.SCV, UnitTypeId.MULE, UnitTypeId.REAPER]])
                 # await self.army_manager.defend(defend, [unit.type_id for unit in self.bot.units.not_structure.flying()])
             else:
                 #print("AssaultManager: defending with everything", target)

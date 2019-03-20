@@ -100,9 +100,9 @@ class SimpleWorkerManager(WorkerManager):
 
         self.build_jobs = [build_job for build_job in self.build_jobs if not build_job.done]
 
-        print(len(self.repair_jobs), "repair jobs")
+        # print(len(self.repair_jobs), "repair jobs")
         for repair_job in self.repair_jobs:
-            print("-", repair_job.building.type_id)
+            # print("-", repair_job.building.type_id)
 
             # Check if done
             if repair_job.building is None or repair_job.building.health * 1.05 >= repair_job.building.health_max:
