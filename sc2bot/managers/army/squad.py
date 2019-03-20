@@ -91,12 +91,15 @@ class Squad:
         # print("Range=", range)
         # print("Distance=", distance)
         if distance < range * 0.8 and closest_enemy_unit.distance_to(self.bot.start_location) > unit.distance_to(self.bot.start_location):
-            #direction_away = closest_enemy_unit.position.direction_vector(unit.position)
-            #length = direction_away.distance2_to(Point2((0, 0)))
-            #unit_vector = Point2((direction_away.x / length, direction_away.y / length))
-            #self.actions.append(unit.move(self.bot.start_location))
-            #position = unit.position + unit_vector * (range*0.1)
             self.actions.append(unit.move(self.bot.start_location))
         else:
             if not unit.is_attacking:
                 self.actions.append(unit.attack(closest_enemy_unit))
+            else:
+                if self.bot.units(UnitTypeId.MEDIVAC).amount >= 1 and distance < range:
+                    if unit.type_id == UnitTypeId.MARINE and unit.health >= unit.health_max * 0.9:
+                        # self.actions.append(unit(AbilityId.EFFECT_STIM))
+                        self.actions.append(unit(AbilityId.EFFECT_STIM_MARINE))
+                    if unit.type_id == UnitTypeId.MARAUDER and unit.health >= unit.health_max * 0.9:
+                        # self.actions.append(unit(AbilityId.EFFECT_STIM))
+                        self.actions.append(unit(AbilityId.EFFECT_STIM_MARUADER))

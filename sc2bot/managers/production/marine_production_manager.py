@@ -30,21 +30,24 @@ class MarineProductionManager(ProductionManager):
             elif self.bot.units(UnitTypeId.REFINERY).amount < 1:
                 self.next_iteration += 2
                 await self.worker_manager.build(UnitTypeId.REFINERY)
-            elif self.bot.can_afford(UnitTypeId.BARRACKSREACTOR) and self.bot.units(UnitTypeId.BARRACKSREACTOR).amount < self.bot.units(UnitTypeId.BARRACKS).amount and self.bot.units(UnitTypeId.BARRACKS).ready.exists and self.bot.can_afford(UnitTypeId.REFINERY):
+            elif self.bot.can_afford(UnitTypeId.BARRACKSTECHLAB) and self.bot.units(UnitTypeId.BARRACKSTECHLAB).amount < self.bot.units(UnitTypeId.BARRACKS).amount and self.bot.units(UnitTypeId.BARRACKS).ready.exists and self.bot.can_afford(UnitTypeId.REFINERY):
                 self.next_iteration += 2
-                await self.building_manager.add_on(UnitTypeId.BARRACKSREACTOR)
+                await self.building_manager.add_on(UnitTypeId.BARRACKSTECHLAB)
             elif (self.bot.units(UnitTypeId.COMMANDCENTER).idle.exists or self.bot.units(UnitTypeId.ORBITALCOMMAND).idle.exists) and self.bot.units(UnitTypeId.SCV).amount < 20 * self.bot.units(UnitTypeId.COMMANDCENTER).amount:
                 self.next_iteration += 2
                 await self.building_manager.train(UnitTypeId.SCV)
             elif self.bot.can_afford(UnitTypeId.MARINE) and self.building_manager.can_train(UnitTypeId.MARINE):
                 self.next_iteration += 2
                 await self.building_manager.train(UnitTypeId.MARINE)
-            elif self.bot.can_afford(UnitTypeId.BARRACKS) and self.bot.units(UnitTypeId.BARRACKS).amount < 1:
+            elif self.bot.can_afford(UnitTypeId.BARRACKS) and self.bot.units(UnitTypeId.BARRACKS).amount < 2:
                 self.next_iteration += 20
                 await self.worker_manager.build(UnitTypeId.BARRACKS)
             elif self.bot.units(UnitTypeId.BUNKER).amount < self.bot.units(UnitTypeId.COMMANDCENTER).amount:
                 self.next_iteration += 40
                 await self.worker_manager.build(UnitTypeId.BUNKER)
+            elif UpgradeId.STIMPACK not in self.bot.state.upgrades:
+                self.next_iteration += 40
+                await self.building_manager.research(UpgradeId.STIMPACK)
             elif self.bot.can_afford(UnitTypeId.COMMANDCENTER):
                 self.next_iteration += 50
                 await self.worker_manager.build(UnitTypeId.COMMANDCENTER)
