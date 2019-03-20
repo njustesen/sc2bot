@@ -110,8 +110,8 @@ class Squad:
 
                 if closest_enemy_unit is not None and closest_enemy_unit.distance_to(unit) < 8:
                     self.actions.append(unit(AbilityId.BURROWDOWN_WIDOWMINE))
-                elif unit.is_burrowed and closest_enemy_unit is not None and closest_enemy_unit.distance_to(unit) < 15:
-                    self.actions.append(unit(AbilityId.BURROWUP_WIDOWMINE))
+                #elif unit.is_burrowed and closest_enemy_unit is not None and closest_enemy_unit.distance_to(unit) > 15:
+                    #self.actions.append(unit(AbilityId.BURROWUP_WIDOWMINE))
                 else:
                     self.actions.append(unit.move(target))
                 '''
