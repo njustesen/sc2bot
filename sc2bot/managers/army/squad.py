@@ -62,8 +62,6 @@ class Squad:
             if order == "attack" or closest_enemy_unit.distance_to(unit.position) < range_own:
 
                 # Basic attack
-                self._basic_attack(unit, closest_enemy_unit)
-
                 # Micro for widowmines
                 '''
                 If we're close to the enemy, burrow down.
@@ -77,42 +75,48 @@ class Squad:
                     '''
                     # for unit in self.units:
                     #     self.actions.append(unit.move(self.bot.start_location))
+                else:
+                    self._basic_attack(unit, closest_enemy_unit)
+
 
             else:
+                defending_position = random.choice(self.bot.main_base_ramp.lower())
 
+                # Widow mine micro
                 '''
                 If a widowmine is buried outside of the base and we're defending,
                 then bring it back
+
+                TODO: For now, it's burrowing in the lower part of the main ramp, find
+                a way to bury it in the higher part of one of natural's ramps.
                 '''
                 if unit.type_id == UnitTypeId.WIDOWMINE:
-                    if unit.is_burrowed():
-                        self.actions.append(unit(AbilityId.BURROWUP_WIDOWMINE))
-                        self.actions.append(unit.move(self.bot.start_location))
-                        '''
-                        Is there a way of referencing the natural ramp?, if so, we should
-                        move the widowmines there.
+                    if unit.position not in self.bot.main_base_ramp.lower():
+                        if unit.is_burrowed():
+                            self.actions.append(unit(AbilityId.BURROWUP_WIDOWMINE))
 
-                        TODO: Change the location to which we're moving the widowmines
-                        '''
+                        self.actions.append(unit.move(defending_position))
+                    
+                    if unit.position == defending_position and not unit.is_burrowed():
+                        self.actions.append(unit(AbilityId.BURROWDOWN_WIDOWMINE))
+                else:
+                    if random.randint(0, len(self.units)) == 0:
+                        # Go into bunker
+                        bunkers = self.bot.units(UnitTypeId.BUNKER).ready
+                        if bunkers.exists:
+                            for bunker in bunkers:
+                                if bunker.cargo_used < bunker.cargo_max:
+                                    self.actions.append(bunker(AbilityId.LOAD_BUNKER, unit))
+                                    # self.actions.append(unit.move(bunker))
+                                    return
 
-                if random.randint(0, len(self.units)) == 0:
+                        # Give some slack if kinda close
+                        if unit.distance_to(target) <= 15 and self.bot.iteration % 20 != 0:
+                            return
 
-                    # Go into bunker
-                    bunkers = self.bot.units(UnitTypeId.BUNKER).ready
-                    if bunkers.exists:
-                        for bunker in bunkers:
-                            if bunker.cargo_used < bunker.cargo_max:
-                                self.actions.append(bunker(AbilityId.LOAD_BUNKER, unit))
-                                # self.actions.append(unit.move(bunker))
-                                return
-
-                    # Give some slack if kinda close
-                    if unit.distance_to(target) <= 15 and self.bot.iteration % 20 != 0:
-                        return
-
-                    # Otherwise hurry up
-                    if unit.distance_to(target) > 5:
-                        self.actions.append(unit.move(target))
+                        # Otherwise hurry up
+                        if unit.distance_to(target) > 5:
+                            self.actions.append(unit.move(target))
 
     def _basic_attack(self, unit, closest_enemy_unit):
         _range = unit.air_range if closest_enemy_unit.is_flying else unit.ground_range
