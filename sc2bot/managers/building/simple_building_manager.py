@@ -56,6 +56,7 @@ class SimpleBuildingManager(BuildingManager):
 
         self.researched_at = {
             UpgradeId.COMBATSHIELD: UnitTypeId.BARRACKSTECHLAB,
+            UpgradeId.SHIELDWALL: UnitTypeId.BARRACKSTECHLAB,
             UpgradeId.SIEGETECH: UnitTypeId.FACTORYTECHLAB,
             UpgradeId.BANSHEECLOAK: UnitTypeId.STARPORTTECHLAB,
             UpgradeId.BANSHEESPEED: UnitTypeId.STARPORTTECHLAB,

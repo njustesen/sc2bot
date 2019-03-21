@@ -132,7 +132,13 @@ class MLPProductionManager(ProductionManager):
             else:
                 units["SIEGETANK"] = units["SIEGETANKSIEGED"]
 
-                # Name fixes
+        if "LIBERATORAG" in units:
+            if "LIBERATOR" in units:
+                units["LIBERATOR"] = units["LIBERATOR"] + units["LIBERATORAG"]
+            else:
+                units["LIBERATOR"] = units["LIBERATORAG"]
+
+        # Name fixes
         if "SUPPLYDEPOTLOWERED" in units:
             if "SUPPLYDEPOT" in units:
                 units["SUPPLYDEPOT"] = units["SUPPLYDEPOT"] + units["SUPPLYDEPOTLOWERED"]

@@ -2,6 +2,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.ability_id import AbilityId
 import math
 from sc2.units import Units
+from sc2.unit import Unit
 from sc2.position import Point2, Point3
 import random
 
@@ -15,8 +16,25 @@ class Squad:
         self.unit_types = unit_types
         self.units = None
         self.actions = []
+        self.defensive_ramp = None
+        self.defending_position = None
 
     async def run(self):
+        if self.defensive_ramp is None or self.bot.iteration % 50 == 0 and self.bot.townhalls.exists:
+            front_base = self.bot.townhalls.closest_to(self.bot.enemy_start_locations[0])
+            distance_between_bases = front_base.distance_to(self.bot.enemy_start_locations[0])
+            closest_distance_to_home = 100000
+            for ramp in self.bot.game_info.map_ramps:
+                distance_to_enemy = ramp.top_center.distance_to(self.bot.enemy_start_locations[0])
+                distance_to_us = ramp.top_center.distance_to(front_base)
+                distance_to_home = ramp.top_center.distance_to(self.bot.start_location)
+                if distance_to_enemy < distance_between_bases:
+                    if distance_to_home < closest_distance_to_home:
+                        closest_distance_to_home = distance_to_home
+                        self.defensive_ramp = ramp
+                        dir_vector = ramp.bottom_center.direction_vector(ramp.top_center)
+                        self.defending_position = ramp.top_center + dir_vector*4
+
         if len(self.actions) > 0:
             actions = [action for action in self.actions]
             self.actions = []
@@ -100,6 +118,7 @@ class Squad:
                 self.actions.append(unit.move(self.bot.start_location))
 
         # Decide what to do
+        centroid = self.units.not_structure.closest_to(self.units.center).position
         if order == "attack" or (closest_enemy_unit is not None and closest_enemy_unit.distance_to(unit.position) < range_own):
 
             # Micro for widowmines
@@ -108,12 +127,14 @@ class Squad:
             '''
             if unit.type_id == UnitTypeId.WIDOWMINE:
 
-                if closest_enemy_unit is not None and closest_enemy_unit.distance_to(unit) < 8:
+                if not unit.is_burrowed and closest_enemy_ground_unit is not None and closest_enemy_ground_unit.distance_to(unit) < 8:
                     self.actions.append(unit(AbilityId.BURROWDOWN_WIDOWMINE))
-                #elif unit.is_burrowed and closest_enemy_unit is not None and closest_enemy_unit.distance_to(unit) > 15:
-                    #self.actions.append(unit(AbilityId.BURROWUP_WIDOWMINE))
-                else:
-                    self.actions.append(unit.move(target))
+                elif not unit.is_burrowed and self.bot.iteration % 50 == 0:
+                    if isinstance(target, Unit):
+                        self.actions.append(unit.move(target.position + Point2((random.randint(-3, 3), random.randint(-3, 3)))))
+                    else:
+                        self.actions.append(unit.move(target + Point2((random.randint(-3, 3), random.randint(-3, 3)))))
+
                 '''
                 Move a little bit away from the mines (i.e. bait)
                 (I guess all units are doing this in _basic_attack)
@@ -128,7 +149,7 @@ class Squad:
                 '''
                 # If the unit is too close, move back
                 if closest_enemy_ground_unit is not None:
-                    if range_own * 1.5 < closest_enemy_ground_unit.distance_to(unit.position) < 2.5 * range_own: # (?)
+                    if range_own * 1.5 < closest_enemy_ground_unit.distance_to(unit.position) < 2.5 * range_own and not self.bot.known_enemy_units(UnitTypeId.BROODLORD).exists:  # (?)
                         self.actions.append(unit(AbilityId.SIEGEMODE_SIEGEMODE))
                     else:
                         self._basic_attack(unit, closest_enemy_ground_unit)
@@ -137,7 +158,33 @@ class Squad:
             elif unit.type_id == UnitTypeId.SIEGETANKSIEGED:
                 if closest_enemy_unit is not None and closest_enemy_unit.distance_to(unit.position) < 0.3 * range_own:
                     self.actions.append(unit(AbilityId.UNSIEGE_UNSIEGE))
+                elif self.bot.known_enemy_units(UnitTypeId.BROODLORD).exists:
+                    self.actions.append(unit(AbilityId.UNSIEGE_UNSIEGE))
                     # It should move on the next iteration, since it's a siegetank again
+
+            elif unit.type_id == UnitTypeId.LIBERATOR:
+                # Micro for tanks
+                '''
+                When we're close to the enemy, AG MODE
+                '''
+                # If the unit is too close, move back
+                if closest_enemy_ground_unit is not None:
+                    if closest_enemy_ground_unit.distance_to(unit.position) < 10:  # (?)
+                        self.actions.append(unit(AbilityId.LIBERATORMORPHTOAG_LIBERATORAGMODE))
+                    elif closest_enemy_air_unit is not None:
+                        self._basic_attack(unit, closest_enemy_air_unit)
+                    else:
+                        self.actions.append(unit.move(closest_enemy_ground_unit.position))
+                else:
+                    self.actions.append(unit.move(target))
+            elif unit.type_id == UnitTypeId.LIBERATORAG:
+                if closest_enemy_unit is not None and closest_enemy_unit.distance_to(unit.position) > 1.2 * range_own:
+                    self.actions.append(unit(AbilityId.MORPH_LIBERATORAAMODE))
+                elif closest_enemy_unit is not None and closest_enemy_unit.is_flying and closest_enemy_unit.distance_to(unit.position) < closest_enemy_unit.air_range:
+                    self.actions.append(unit(AbilityId.MORPH_LIBERATORAAMODE))
+                elif closest_enemy_unit is None:
+                    self.actions.append(unit(AbilityId.MORPH_LIBERATORAAMODE))
+
             # Medivac micro
             # Basic attack
             elif closest_enemy_unit is not None:
@@ -151,14 +198,10 @@ class Squad:
                     self.actions.append(unit.move(retreat_to))
                 else:
                     self._basic_attack(unit, closest_enemy_unit)
-            else:
+            elif self.bot.iteration % 200 == 0:
                 self.actions.append(unit.move(target))
 
         elif order == "defend":
-            if self.bot.townhalls.amount > 2:
-                defending_position = target
-            else:
-                defending_position = random.choice(list(self.bot.main_base_ramp.lower))
 
             # Widow mine micro
             '''
@@ -170,25 +213,49 @@ class Squad:
             with defining a "global" defensive spot.
             '''
             if unit.type_id == UnitTypeId.WIDOWMINE:
-                if unit.position not in self.bot.main_base_ramp.lower:
-                    if unit.is_burrowed:
-                        self.actions.append(unit(AbilityId.BURROWUP_WIDOWMINE))
-
-                    self.actions.append(unit.move(defending_position))
-
-                if unit.position == defending_position and not unit.is_burrowed:
+                if unit.is_burrowed:
+                    return
+                elif unit.position.distance_to(self.defending_position) < 5 and self.bot.units(UnitTypeId.WIDOWMINE).amount > 1 and self.bot.units(UnitTypeId.WIDOWMINE).closest_to(unit).distance_to(unit) > 3:
                     self.actions.append(unit(AbilityId.BURROWDOWN_WIDOWMINE))
+                elif unit.position.distance_to(self.defending_position) < 3:
+                    self.actions.append(unit(AbilityId.BURROWDOWN_WIDOWMINE))
+                elif self.bot.iteration % 50 == 0:
+                    self.actions.append(unit.move(self.defending_position + Point2((random.randint(-5, 5), random.randint(-5, 5)))))
+
             # Medivac micro
             elif unit.type_id == UnitTypeId.MEDIVAC:
-                self.actions.append(unit.move(defending_position))
+                self.actions.append(unit.move(self.defending_position))
+
             # Siegetank micro
             elif unit.type_id == UnitTypeId.SIEGETANK:
-                if unit.distance_to(random.choice(list(self.bot.main_base_ramp.lower))) > 12:
-                    self.actions.append(unit.move(defending_position))
-                else:
+                if unit.distance_to(self.defending_position) > 12:
+                    self.actions.append(unit.move(self.defending_position))
+                elif not self.bot.known_enemy_units(UnitTypeId.BROODLORD).exists:
                     self.actions.append(unit(AbilityId.SIEGEMODE_SIEGEMODE))
             elif unit.type_id == UnitTypeId.SIEGETANKSIEGED:
-                if unit.distance_to(random.choice(list(self.bot.main_base_ramp.lower))) > 12:
+                if unit.distance_to(self.defending_position) > 12:
+                    self.actions.append(unit(AbilityId.UNSIEGE_UNSIEGE))
+                elif self.bot.known_enemy_units(UnitTypeId.BROODLORD).exists:
+                    self.actions.append(unit(AbilityId.UNSIEGE_UNSIEGE))
+                # It should move, since in the next iteration it's no longer
+                # SIEGETANKSIEGED but rather a SIEGETANK
+
+            elif unit.type_id == UnitTypeId.SIEGETANK:
+                if unit.distance_to(self.defending_position) < self.bot.units(UnitTypeId.SIEGETANKSIEGED).amount + 3:
+                    if closest_enemy_ground_unit is not None and 7 < closest_enemy_ground_unit.distance_to(unit) < 15:
+                        self.actions.append(unit(AbilityId.SIEGEMODE_SIEGEMODE))
+                    elif closest_enemy_ground_unit is not None:
+                        self._basic_attack(unit, closest_enemy_ground_unit)
+                    elif not self.bot.known_enemy_units(UnitTypeId.BROODLORD).exists:
+                        self.actions.append(unit(AbilityId.SIEGEMODE_SIEGEMODE))
+                else:
+                    self.actions.append(unit.move(self.defending_position))
+            elif unit.type_id == UnitTypeId.SIEGETANKSIEGED:
+                if closest_enemy_ground_unit is not None and closest_enemy_ground_unit.distance_to(unit) < 5:
+                    self.actions.append(unit(AbilityId.UNSIEGE_UNSIEGE))
+                elif unit.distance_to(self.defending_position) > self.bot.units(UnitTypeId.SIEGETANKSIEGED).amount + 1:
+                    self.actions.append(unit(AbilityId.UNSIEGE_UNSIEGE))
+                elif self.bot.known_enemy_units(UnitTypeId.BROODLORD).exists:
                     self.actions.append(unit(AbilityId.UNSIEGE_UNSIEGE))
                 # It should move, since in the next iteration it's no longer
                 # SIEGETANKSIEGED but rather a SIEGETANK
@@ -199,18 +266,17 @@ class Squad:
                     bunkers = self.bot.units(UnitTypeId.BUNKER).ready
                     if bunkers.exists:
                         for bunker in bunkers:
-                            if bunker.cargo_used < bunker.cargo_max:
-                                self.actions.append(bunker(AbilityId.LOAD_BUNKER, unit))
-                                # self.actions.append(unit.move(bunker))
-                                return
+                            if bunker.distance_to(self.defensive_ramp.top_center) <= unit.ground_range and bunker.cargo_used < bunker.cargo_max:
+                                if unit.type_id in [UnitTypeId.MARINE, UnitTypeId.MARAUDER]:
+                                    self.actions.append(bunker(AbilityId.LOAD_BUNKER, unit))
 
                     # Give some slack if kinda close
-                    if unit.distance_to(target) <= 15 and self.bot.iteration % 20 != 0:
+                    if unit.distance_to(self.defending_position) <= 15 and self.bot.iteration % 20 != 0:
                         return
 
                     # Otherwise hurry up
-                    if unit.distance_to(target) > 5:
-                        self.actions.append(unit.move(target))
+                    if unit.distance_to(self.defending_position) > 5:
+                        self.actions.append(unit.move(self.defending_position))
 
     def _basic_attack(self, unit, closest_enemy_unit):
         _range = unit.air_range if closest_enemy_unit.is_flying else unit.ground_range
@@ -225,5 +291,5 @@ class Squad:
                     self.actions.append(unit(AbilityId.EFFECT_STIM_MARINE))
                     # self.actions.append(unit(AbilityId.EFFECT_STIM))
                 if unit.type_id == UnitTypeId.MARAUDER and unit.health >= unit.health_max * 0.9:
-                    self.actions.append(unit(AbilityId.EFFECT_STIM_MARUADER))
+                    self.actions.append(unit(AbilityId.EFFECT_STIM_MARAUDER))
                     # self.actions.append(unit(AbilityId.EFFECT_STIM))
