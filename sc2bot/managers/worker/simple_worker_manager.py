@@ -101,9 +101,9 @@ class SimpleWorkerManager(WorkerManager):
 
         self.build_jobs = [build_job for build_job in self.build_jobs if not build_job.done]
 
-        # print(len(self.repair_jobs), "repair jobs")
+        # self.bot.print(len(self.repair_jobs), "repair jobs")
         for repair_job in self.repair_jobs:
-            # print("-", repair_job.building.type_id)
+            # self.bot.print("-", repair_job.building.type_id)
 
             # Check if done
             if repair_job.building is None or repair_job.building.health * 1.05 >= repair_job.building.health_max:
@@ -165,7 +165,7 @@ class SimpleWorkerManager(WorkerManager):
         if not add_new:
             return
 
-        #print("WorkerManager: building ", building)
+        #self.bot.print("WorkerManager: building ", building)
         w = self._get_builder()
         if w:  # if worker found
             assert self.scouting_worker is None or w.tag != self.scouting_worker.tag
@@ -226,7 +226,7 @@ class SimpleWorkerManager(WorkerManager):
             self.last_scouting_location = location
             w = self._get_builder()
             if w:  # if worker found
-                #print("WorkerManager: scouting ", location)
+                #self.bot.print("WorkerManager: scouting ", location)
                 self.scouting_worker = w
                 self.actions.append(w.move(location))
 
@@ -397,15 +397,16 @@ class SimpleWorkerManager(WorkerManager):
         for distance in range(placement_step, max_distance, placement_step):
 
             possible_positions = [Point2(p).offset(near).to2 for p in (
-                    [(dx, int(-distance/2)) for dx in range(-distance, distance + 1, placement_step)] +
-                    [(dx, int(distance/2)) for dx in range(-distance, distance + 1, placement_step)] +
-                    [(-distance, int(dy/2)) for dy in range(-distance, distance + 1, placement_step)] +
-                    [(distance, int(dy/2)) for dy in range(-distance, distance + 1, placement_step)]
+                    [(dx, int(-distance/1.5)) for dx in range(-distance, distance + 1, placement_step) if dx != 0] +
+                    [(dx, int(distance/1.5)) for dx in range(-distance, distance + 1, placement_step) if dx != 0] +
+                    [(-distance, int(dy/1.5)) for dy in range(-distance, distance + 1, placement_step)] +
+                    [(distance, int(dy/1.5)) for dy in range(-distance, distance + 1, placement_step)]
             )]
-            if building == UnitTypeId.FACTORY:
-                possible_positions = [pos for pos in possible_positions if self.bot.main_base_ramp.bottom_center.distance_to(pos) > 5]
-            possible_positions = [pos for pos in possible_positions if pos.x != near.x]
-
+            #if building in [AbilityId.TERRANBUILD_FACTORY, AbilityId.TERRANBUILD_STARPORT, AbilityId.TERRANBUILD_BARRACKS]:
+            #    possible_positions = [pos for pos in possible_positions if self.bot.main_base_ramp.bottom_center.distance_to(pos) > 10]
+            #if building in [AbilityId.TERRANBUILD_FACTORY, AbilityId.TERRANBUILD_STARPORT, AbilityId.TERRANBUILD_BARRACKS]:
+                #possible_positions = [pos for pos in possible_positions if pos.x > near.x]
+                #possible_positions = [pos for pos in possible_positions if pos.x != near.x]
             res = await self.bot.client().query_building_placement(building, possible_positions)
             possible = [p for r, p in zip(res, possible_positions) if r == ActionResult.Success]
 

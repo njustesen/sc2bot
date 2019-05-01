@@ -23,20 +23,20 @@ class ValueBasedAssaultManager(AssaultManager):
             own_ground_to_ground, own_ground_to_air, own_air_to_air, own_air_to_ground = self.army_value(self.bot.units())
             opp_ground_to_ground, opp_ground_to_air, opp_air_to_air, opp_air_to_ground = self.army_value(Units(self.bot.enemy_units.values(), self.bot.game_data()), include_buildings=True)
 
-            own_ground_to_ground = own_ground_to_ground * 0.9
-            own_ground_to_air = own_ground_to_air * 0.9
-            own_air_to_air = own_air_to_air * 0.9
-            own_air_to_ground = own_air_to_ground * 0.9
+            own_ground_to_ground = own_ground_to_ground
+            own_ground_to_air = own_ground_to_air
+            own_air_to_air = own_air_to_air
+            own_air_to_ground = own_air_to_ground
 
-            #print("Own army value: ", own_ground_to_ground + own_ground_to_air + own_air_to_air + own_air_to_ground)
-            #print("Opp army value: ", opp_ground_to_ground + opp_ground_to_air + opp_air_to_air + opp_air_to_ground)
+            #self.bot.print("Own army value: ", own_ground_to_ground + own_ground_to_air + own_air_to_air + own_air_to_ground)
+            #self.bot.print("Opp army value: ", opp_ground_to_ground + opp_ground_to_air + opp_air_to_air + opp_air_to_ground)
             await self.army_manager.harass(opp_base, [UnitTypeId.REAPER])
 
-            if own_air_to_air + own_air_to_ground + own_ground_to_air + own_ground_to_ground > opp_air_to_air + opp_air_to_ground + opp_ground_to_air + opp_ground_to_ground:
-                #print("AssaultManager: Attacking with all units", target)
+            if own_air_to_air + own_air_to_ground + own_ground_to_air + own_ground_to_ground - 1000 > opp_air_to_air + opp_air_to_ground + opp_ground_to_air + opp_ground_to_ground:
+                #self.bot.print("AssaultManager: Attacking with all units", target)
                 await self.army_manager.attack(target, None)
             else:
-                #print("AssaultManager: defending with everything", target)
+                #self.bot.print("AssaultManager: defending with everything", target)
                 await self.army_manager.defend(defend, None)
 
     def army_value(self, units, include_buildings=False):

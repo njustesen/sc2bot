@@ -21,19 +21,22 @@ class Squad:
 
     async def run(self):
         if self.defensive_ramp is None or self.bot.iteration % 50 == 0 and self.bot.townhalls.exists:
-            front_base = self.bot.townhalls.closest_to(self.bot.enemy_start_locations[0])
-            distance_between_bases = front_base.distance_to(self.bot.enemy_start_locations[0])
-            closest_distance_to_home = 100000
-            for ramp in self.bot.game_info.map_ramps:
-                distance_to_enemy = ramp.top_center.distance_to(self.bot.enemy_start_locations[0])
-                distance_to_us = ramp.top_center.distance_to(front_base)
-                distance_to_home = ramp.top_center.distance_to(self.bot.start_location)
-                if distance_to_enemy < distance_between_bases:
-                    if distance_to_home < closest_distance_to_home:
-                        closest_distance_to_home = distance_to_home
-                        self.defensive_ramp = ramp
-                        dir_vector = ramp.bottom_center.direction_vector(ramp.top_center)
-                        self.defending_position = ramp.top_center + dir_vector*4
+            closest_ramps = sorted(self.bot.game_info.map_ramps, key=lambda x: x.top_center.distance_to(self.bot.start_location))
+            if self.bot.townhalls.amount <= 1:
+                self.defensive_ramp = closest_ramps[0]
+            else:
+                self.defensive_ramp = closest_ramps[3]
+            dir_vector = self.defensive_ramp.bottom_center.direction_vector(self.defensive_ramp.top_center)
+            self.defending_position = self.defensive_ramp.top_center + dir_vector*4
+
+        # Attack attacking enemies
+        if self.bot.iteration % 10 == 0:
+            for structure in self.bot.townhalls:
+                if self.bot.known_enemy_units.closer_than(10, structure.position).amount > 0:
+                    self.defending_position = None
+
+        if self.defending_position is None:
+            print("Under attack!")
 
         if len(self.actions) > 0:
             actions = [action for action in self.actions]
@@ -46,7 +49,7 @@ class Squad:
                     squad_size = self.units.amount + 2
                     distance = unit.distance_to(centroid)
                     # print("Squad size: ", squad_size, ", distance: ", distance)
-                    if distance > squad_size/2:
+                    if distance > squad_size/2 + self.units(UnitTypeId.SIEGETANKSIEGED).amount:
                         #self.actions.append(unit.move(self.units.center))
                         if unit.type_id == UnitTypeId.SIEGETANKSIEGED:
                             self.actions.append(unit(AbilityId.UNSIEGE_UNSIEGE))
@@ -55,8 +58,15 @@ class Squad:
                     else:
                         self.unit_move(unit, self.target, self.order)
             elif self.order == "defend":
-                for unit in self.units:
-                    self.unit_move(unit, self.target, self.order)
+                target = self.target
+                if self.defending_position is None:
+                    target = self.bot.known_enemy_units.closest_to(self.bot.start_location)
+                    for unit in self.units:
+                        if target is not None:
+                            self.unit_move(unit, target.position, "attack")
+                else:
+                    for unit in self.units:
+                        self.unit_move(unit, target, self.order)
             elif self.order == "harass":
                 for unit in self.units:
                     self.harass_move(unit, self.target)
@@ -169,8 +179,8 @@ class Squad:
                 '''
                 # If the unit is too close, move back
                 if closest_enemy_ground_unit is not None:
-                    if closest_enemy_ground_unit.distance_to(unit.position) < 10:  # (?)
-                        self.actions.append(unit(AbilityId.LIBERATORMORPHTOAG_LIBERATORAGMODE))
+                    if closest_enemy_ground_unit.distance_to(unit.position) < 5:  # (?)
+                        self.actions.append(unit(AbilityId.LIBERATORMORPHTOAG_LIBERATORAGMODE, unit.position))
                     elif closest_enemy_air_unit is not None:
                         self._basic_attack(unit, closest_enemy_air_unit)
                     else:
@@ -212,6 +222,7 @@ class Squad:
             a way to bury it in the higher part of one of natural's ramps. This ties in
             with defining a "global" defensive spot.
             '''
+
             if unit.type_id == UnitTypeId.WIDOWMINE:
                 if unit.is_burrowed:
                     return
