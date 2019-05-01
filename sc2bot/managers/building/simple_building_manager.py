@@ -106,7 +106,10 @@ class SimpleBuildingManager(BuildingManager):
             UnitTypeId.FACTORYTECHLAB: [UnitTypeId.FACTORY],
             UnitTypeId.FACTORYREACTOR: [UnitTypeId.FACTORY],
             UnitTypeId.STARPORTREACTOR: [UnitTypeId.STARPORT],
-            UnitTypeId.STARPORTTECHLAB: [UnitTypeId.STARPORT]
+            UnitTypeId.STARPORTTECHLAB: [UnitTypeId.STARPORT],
+            UnitTypeId.REAPER: [UnitTypeId.REFINERY],
+            UnitTypeId.SIEGETANK: [UnitTypeId.REFINERY]
+
         }
 
     async def run(self):
@@ -127,7 +130,7 @@ class SimpleBuildingManager(BuildingManager):
                     break
 
     async def train(self, unit, max_queue=5):
-        # print("BuildingManager: training ", unit)
+        # self.bot.print("BuildingManager: training ", unit)
         if self.bot.can_afford(unit):
             trainer = self.trained_at[unit]
             trainers = [trainer]
@@ -176,7 +179,7 @@ class SimpleBuildingManager(BuildingManager):
 
     async def scan(self, location):
         for oc in self.bot.units(UnitTypeId.ORBITALCOMMAND).filter(lambda x: x.energy >= 50):
-            print("Scanning at ", location)
+            self.bot.print(f"Scanning at {location}")
             self.actions.append(oc(AbilityId.SCANNERSWEEP_SCAN, location))
             # await self.bot.do_actions([oc(AbilityId.SCANNERSWEEP_SCAN, location)])
             # self.actions.append(oc(AbilityId.SCAN_MOVE, location))
@@ -195,6 +198,10 @@ class SimpleBuildingManager(BuildingManager):
                 return
 
     def can_train(self, unit_type, must_be_ready=True, must_afford=True, max_queue=5):
+        if unit_type in self.requirements:
+            for requirement in self.requirements[unit_type]:
+                if self.bot.units(requirement).amount == 0 and not self.worker_manager.is_building(requirement):
+                    return False
         if self.bot.can_afford(unit_type) or not must_afford:
             trainer = self.trained_at[unit_type]
             trainers = [trainer]
@@ -232,6 +239,8 @@ class SimpleBuildingManager(BuildingManager):
         elif upgrade_type == UnitTypeId.PLANETARYFORTRESS:
             ability = AbilityId.UPGRADETOPLANETARYFORTRESS_PLANETARYFORTRESS
         if ability is not None and (self.bot.can_afford(upgrade_type) or not must_afford):  # check if orbital is affordable
+            if upgrade_type in self.requirements[upgrade_type] and self.bot.units(self.requirements[upgrade_type]).amount == 1:
+                return False
             if must_be_ready:
                 return self.bot.units(UnitTypeId.COMMANDCENTER).idle.exists
             else:
@@ -255,7 +264,7 @@ class SimpleBuildingManager(BuildingManager):
         return self.can_upgrade(upgrade_type, must_be_ready=False, must_afford=False)
 
     def is_legal_build_action(self, build_type):
-        if build_type == UnitTypeId.REFINERY and self.bot.units(UnitTypeId.REFINERY).amount >= self.bot.units(UnitTypeId.COMMANDCENTER).amount:
+        if build_type == UnitTypeId.REFINERY and self.bot.units(UnitTypeId.REFINERY).amount >= self.bot.townhalls.amount * 2:
             return self.worker_manager.is_building(UnitTypeId.COMMANDCENTER)
         if build_type in self.add_on_at:
             at = self.add_on_at[build_type]

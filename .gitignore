@@ -1,6 +1,11 @@
 # Models
 models/
 
+# Replays
+replays/
+
+bayes/
+
 # Mac
 .DS_Store
 

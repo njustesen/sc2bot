@@ -1,7 +1,7 @@
 from sc2bot.managers.interfaces import ArmyManager
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.units import Units
-from sc2bot.managers.army.squad import Squad
+from sc2bot.managers.army import Squad
 from sc2.ids.ability_id import AbilityId
 import math
 from sc2.units import Units

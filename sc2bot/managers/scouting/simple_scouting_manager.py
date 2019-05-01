@@ -20,7 +20,7 @@ class SimpleScoutingManager(ScoutingManager):
         # Worker scouting?
         if self.bot.iteration % 50 == 0 and self.bot.known_enemy_structures.amount == 0 and self.bot.units(UnitTypeId.SUPPLYDEPOT):
             target = self.bot.known_enemy_structures.random_or(self.bot.enemy_start_locations[0]).position
-            # print("ScoutingManager: scouting ", target)
+            # self.bot.print("ScoutingManager: scouting ", target)
             await self.worker_manager.scout(target)
 
         # Scanner scouting?
