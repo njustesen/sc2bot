@@ -36,7 +36,11 @@ class MLPProductionManager(ProductionManager):
         #model_name = "models_without_time/TvZ_3x256_no_frame_id_1552990154_state_dict_1D"
         #model_name = "models_without_time/TvZ_3x256_no_frame_id_1552990347_state_dict_2D"
         #model_name = "models_features/TvZ_3x256_units_89_1554321386_0_state_dict"
-        model_name = "1556130494_TvZ_3x256_no_features_19_3_state_dict"
+
+        if len(features) == 0:
+            model_name = "1556130494_TvZ_3x256_no_features_19_3_state_dict"
+        else:
+            model_name = "1556133853_TvZ_3x256_2D_features_69_1_state_dict"
 
         # scalers = joblib.load("../data/scalers.json")
         self.bot.print("Loading model")
