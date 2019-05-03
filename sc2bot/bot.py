@@ -16,14 +16,14 @@ from sc2bot.managers.building.simple_building_manager import SimpleBuildingManag
 from sc2bot.managers.production.marine_production_manager import MarineProductionManager
 from sc2bot.managers.production.reaper_marine_production_manager import ReaperMarineProductionManager
 from sc2bot.managers.production.orbital_production_manager import OrbitalProductionManager
-from sc2bot.managers.production.mlp_production_manager import MLPProductionManager
+from sc2bot.managers.production.MLP_production_manager import MLPProductionManager
 from sc2bot.managers.production.mlp_model import Net
 from sc2bot.managers.scouting.simple_scouting_manager import SimpleScoutingManager
 from sc2bot.managers.assault.simple_assault_manager import SimpleAssaultManager
 from sc2bot.managers.assault.value_based_assault_manager import ValueBasedAssaultManager
 from sc2bot.managers.worker.simple_worker_manager import SimpleWorkerManager
-from bayes_opt import BayesianOptimization
-from bayes_opt import UtilityFunction
+#from bayes_opt import BayesianOptimizationBayesianOptimization
+#from bayes_opt import UtilityFunction
 import numpy as np
 import pickle
 
@@ -144,7 +144,7 @@ def run_game(features):
     # Multiple difficulties for enemy bots available https://github.com/Blizzard/s2client-api/blob/ce2b3c5ac5d0c85ede96cef38ee7ee55714eeb2f/include/sc2api/sc2_gametypes.h#L30
     try:
         result = sc2.run_game(sc2.maps.get("(2)CatalystLE"),
-                                players=[Bot(Race.Terran, TerranBot(features=features, verbose=True)), Computer(Race.Zerg, Difficulty.Medium)],
+                                players=[Bot(Race.Terran, TerranBot(features=features, verbose=True)), Computer(Race.Zerg, Difficulty.Easy)],
                                 save_replay_as=replay_name,
                                 realtime=False)
         return 0 if result.name == "Defeat" else (1 if result.name == "Victory" else 0.5)
@@ -262,20 +262,6 @@ def optimize(n=100):
         plot_grid(grid, i+j)
         print(optimizer.max)
 
-    '''
-    optimizer = BayesianOptimization(run_game, {'x': (0, 1), 'y': (0, 1)})
-    gp_params = {'corr': 'absolute_exponential', 'nugget': 1e-9}
-    optimizer.maximize(init_points=5, n_iter=0, acq='ucb', kappa=10, **gp_params)
-    plot_2d("{:03}".format(len(bo.X)))
-
-    # Turn interactive plotting off
-    plt.ioff()
-
-    for i in range(10):
-        bo.maximize(init_points=0, n_iter=1, acq='ucb', kappa=10, **gp_params)
-        plot_2d("{:03}".format(len(bo.X)), iteration=i)
-    '''
-
 def main():
 
     # Cluster 10 units
@@ -298,9 +284,19 @@ def main():
     # Centroid of cluster 32 with position (0.6273395419120789,0.977607786655426)
     features_32 = [0.6273395419120789, 0.977607786655426]
 
-    result = run_game(features_10)
-    #print(result)
+    no_features = []
+
+    results = []
+    for i in range(100):
+        print(f"Game {i}")
+        result = run_game(no_features)
+        print(result)
+        results.append(results)
     #optimize(100)
+
+    print("---- RESULTS ----")
+    for result in results:
+        print(f"result{result}")
 
     '''
     for i in range(1, 100):

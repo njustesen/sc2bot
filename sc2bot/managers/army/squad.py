@@ -35,8 +35,8 @@ class Squad:
                 if self.bot.known_enemy_units.closer_than(10, structure.position).amount > 0:
                     self.defending_position = None
 
-        if self.defending_position is None:
-            print("Under attack!")
+        #if self.defending_position is None:
+            #print("Under attack!")
 
         if len(self.actions) > 0:
             actions = [action for action in self.actions]
