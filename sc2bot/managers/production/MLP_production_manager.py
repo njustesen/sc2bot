@@ -28,9 +28,6 @@ class MLPProductionManager(ProductionManager):
         self.inv_action_dict = {v: k for k, v in self.action_dict.items()}
         self.columns_maxes = json.load(open("data/all_columns_maxes_2.json"))
 
-        self.input_columns = json.load(open("data/all_columns_1556133853.json"))
-        self.input_columns = json.load(open("data/all_columns_1556130494.json"))
-
         # model_name = "models_without_time/TvZ_3x256_no_frame_id_1552989984_state_dict"
 
         #model_name = "models_without_time/TvZ_3x256_no_frame_id_1552990154_state_dict_1D"
@@ -39,8 +36,10 @@ class MLPProductionManager(ProductionManager):
 
         if len(features) == 0:
             model_name = "1556130494_TvZ_3x256_no_features_19_3_state_dict"
+            self.input_columns = json.load(open("data/all_columns_1556130494.json"))
         else:
             model_name = "1556133853_TvZ_3x256_2D_features_69_1_state_dict"
+            self.input_columns = json.load(open("data/all_columns_1556133853.json"))
 
         # scalers = joblib.load("../data/scalers.json")
         self.bot.print("Loading model")
@@ -190,6 +189,8 @@ class MLPProductionManager(ProductionManager):
                 row.append(observation.player_common.food_used)
             elif column == "supply_total":
                 row.append(observation.player_common.food_cap)
+            elif column == "supply_available":
+                row.append(observation.player_common.food_cap - observation.player_common.food_used)
             elif column == "supply_army":
                 row.append(observation.player_common.food_army)
             elif column == "supply_workers":
