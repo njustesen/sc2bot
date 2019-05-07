@@ -48,6 +48,9 @@ class Squad:
                 for unit in self.units:
                     squad_size = self.units.amount + 2
                     distance = unit.distance_to(centroid)
+                    if unit.distance_to(self.bot.enemy_start_locations[0]) * 2 < unit.distance_to(self.bot.start_location):
+                        self.unit_move(unit, self.target, self.order)
+                        continue
                     # print("Squad size: ", squad_size, ", distance: ", distance)
                     if distance > squad_size/2 + self.units(UnitTypeId.SIEGETANKSIEGED).amount:
                         #self.actions.append(unit.move(self.units.center))
@@ -159,7 +162,9 @@ class Squad:
                 '''
                 # If the unit is too close, move back
                 if closest_enemy_ground_unit is not None:
-                    if range_own * 1.5 < closest_enemy_ground_unit.distance_to(unit.position) < 2.5 * range_own and not self.bot.known_enemy_units(UnitTypeId.BROODLORD).exists:  # (?)
+                    if unit.distance_to(self.bot.enemy_start_locations[0]) * 2 < unit.distance_to(self.bot.start_location):
+                        self._basic_attack(unit, closest_enemy_ground_unit)
+                    elif range_own * 1.5 < closest_enemy_ground_unit.distance_to(unit.position) < 2.5 * range_own and not self.bot.known_enemy_units(UnitTypeId.BROODLORD).exists:  # (?)
                         self.actions.append(unit(AbilityId.SIEGEMODE_SIEGEMODE))
                     else:
                         self._basic_attack(unit, closest_enemy_ground_unit)

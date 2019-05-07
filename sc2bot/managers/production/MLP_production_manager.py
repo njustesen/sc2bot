@@ -199,6 +199,8 @@ class MLPProductionManager(ProductionManager):
                 row.append(observation.player_common.food_cap - observation.player_common.food_used)
             elif column == "supply_total":
                 row.append(observation.player_common.food_cap)
+            elif column == "supply_available":
+                row.append(observation.player_common.food_cap - observation.player_common.food_used)
             elif column == "supply_army":
                 row.append(observation.player_common.food_army)
             elif column == "supply_workers":
