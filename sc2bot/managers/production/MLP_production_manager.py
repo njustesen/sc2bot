@@ -36,10 +36,10 @@ class MLPProductionManager(ProductionManager):
 
         if len(features) == 0:
             model_name = "1556130494_TvZ_3x256_no_features_19_3_state_dict"
-            self.input_columns = json.load(open("data/all_columns_1556130494.json"))
         else:
             model_name = "1556133853_TvZ_3x256_2D_features_69_1_state_dict"
-            self.input_columns = json.load(open("data/all_columns_1556133853.json"))
+
+        self.input_columns = json.load(open("data/all_columns_1556130494.json"))
 
         # scalers = joblib.load("../data/scalers.json")
         self.bot.print("Loading model")
@@ -447,16 +447,18 @@ class MLPProductionManager(ProductionManager):
     def _init_abilites(self):
         self.bot.print("Initializing abilities")
         for upgrade_type in UpgradeId:
-            ability = self.bot.game_data().upgrades[upgrade_type.value].research_ability
-            if ability is None:
-                continue
-            self.research_abilities[ability.id] = upgrade_type
-        for unit_type in UnitTypeId:
-            if unit_type.value in self.bot.game_data().units:
-                ability = self.bot.game_data().units[unit_type.value].creation_ability
+            if upgrade_type.value in self.bot.game_data().upgrades.keys():
+                ability = self.bot.game_data().upgrades[upgrade_type.value].research_ability
                 if ability is None:
                     continue
-                self.unit_abilities[ability.id] = unit_type
+                self.research_abilities[ability.id] = upgrade_type
+        for unit_type in UnitTypeId:
+            if unit_type.value in self.bot.game_data().units:
+                if unit_type.value in self.bot.game_data().units.keys():
+                    ability = self.bot.game_data().units[unit_type.value].creation_ability
+                    if ability is None:
+                        continue
+                    self.unit_abilities[ability.id] = unit_type
 
     async def on_building_construction_started(self, unit):
         if self.build_action is not None and self.build_action == unit.type_id:

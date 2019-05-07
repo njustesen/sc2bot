@@ -3,12 +3,11 @@
 A modular StarCraft II bot.
 """
 
-import seaborn as sns
 import random
 import time
 import math
 import sc2
-from sc2 import Race, Difficulty, UnitTypeId
+from sc2 import Race, Difficulty, UnitTypeId, AbilityId
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from sc2.player import Bot, Computer
 from sc2bot.managers.army.simple_army_manager import SimpleArmyManager
@@ -17,7 +16,7 @@ from sc2bot.managers.building.simple_building_manager import SimpleBuildingManag
 from sc2bot.managers.production.marine_production_manager import MarineProductionManager
 from sc2bot.managers.production.reaper_marine_production_manager import ReaperMarineProductionManager
 from sc2bot.managers.production.orbital_production_manager import OrbitalProductionManager
-from sc2bot.managers.production.mlp_production_manager import MLPProductionManager
+from sc2bot.managers.production.MLP_production_manager import MLPProductionManager
 from sc2bot.managers.production.mlp_model import Net
 from sc2bot.managers.scouting.simple_scouting_manager import SimpleScoutingManager
 from sc2bot.managers.assault.simple_assault_manager import SimpleAssaultManager
@@ -77,19 +76,24 @@ class TerranBot(sc2.BotAI):
         for unit in self.known_enemy_units | self.known_enemy_structures:
             self.enemy_units[unit.tag] = unit
 
+
         self.iteration += 1
-        # print("-- Production Manager")
-        await self.production_manager.execute()
-        # print("-- Scouting Manager")
-        await self.scouting_manager.execute()
-        # print("-- Assault Manager")
-        await self.assault_manager.execute()
-        # print("-- Army Manager")
-        await self.army_manager.execute()
-        # print("-- Worker Manager")
-        await self.worker_manager.execute()
-        # print("-- Building Manager")
-        await self.building_manager.execute()
+
+        try:
+            # print("-- Production Manager")
+            await self.production_manager.execute()
+            # print("-- Scouting Manager")
+            await self.scouting_manager.execute()
+            # print("-- Assault Manager")
+            await self.assault_manager.execute()
+            # print("-- Army Manager")
+            await self.army_manager.execute()
+            # print("-- Worker Manager")
+            await self.worker_manager.execute()
+            # print("-- Building Manager")
+            await self.building_manager.execute()
+        except Exception as err:
+            print(err)
 
     def game_data(self):
         return self._game_data
@@ -182,7 +186,7 @@ class Hydralisk(sc2.BotAI):
         for queen in self.units(UnitTypeId.QUEEN).idle:
             abilities = await self.get_available_abilities(queen)
             if AbilityId.EFFECT_INJECTLARVA in abilities:
-                await self.do(queen(UnitTypeId.EFFECT_INJECTLARVA, hq))
+                await self.do(queen(AbilityId.EFFECT_INJECTLARVA, hq))
 
         if not (self.units(UnitTypeId.SPAWNINGPOOL).exists or self.already_pending(UnitTypeId.SPAWNINGPOOL)):
             if self.can_afford(UnitTypeId.SPAWNINGPOOL):
@@ -231,7 +235,7 @@ def run_game(features):
     replay_name = f"replays/sc2bot_{int(time.time())}.sc2replay"
     # Multiple difficulties for enemy bots available https://github.com/Blizzard/s2client-api/blob/ce2b3c5ac5d0c85ede96cef38ee7ee55714eeb2f/include/sc2api/sc2_gametypes.h#L30
     try:
-        result = sc2.run_game(sc2.maps.get("CatalystLE"),
+        result = sc2.run_game(sc2.maps.get("(2)CatalystLE"),
                                 players=[Bot(Race.Terran, TerranBot(features=features, verbose=True)), Bot(Race.Zerg, Hydralisk())],
                                 save_replay_as=replay_name,
                                 realtime=False)
@@ -282,14 +286,15 @@ def main():
         Option(32, features_32)
     ]
 
-    for i in range(100):
+    for i in range(1):
         for option in options:
             result = run_game(option.features)
+            print(result)
             option.builds.append(TerranBot.builds)
             option.wins += 1 if result > 0 else 0
             option.n += 1
 
-    #print(result)
+    print(result)
 
 if __name__ == '__main__':
     main()
