@@ -8,7 +8,10 @@ import random
 import time
 import math
 import sc2
-from sc2 import Race, Difficulty
+import json
+import pickle
+from sc2 import Race, Difficulty, UnitTypeId, AbilityId
+from s2clientprotocol import sc2api_pb2 as sc_pb
 from sc2.player import Bot, Computer
 from sc2bot.managers.army.simple_army_manager import SimpleArmyManager
 from sc2bot.managers.army.advanced_army_manager import AdvancedArmyManager
@@ -26,6 +29,7 @@ from sc2bot.managers.worker.simple_worker_manager import SimpleWorkerManager
 #from bayes_opt import UtilityFunction
 import numpy as np
 import pickle
+import enum
 
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
@@ -35,8 +39,11 @@ from matplotlib import mlab
 
 class TerranBot(sc2.BotAI):
 
+    builds = {}
+
     def __init__(self, features, verbose=True):
         super().__init__()
+        TerranBot.builds = {}
         self.iteration = 0
         self.verbose = verbose
         self.worker_manager = SimpleWorkerManager(self)
@@ -123,6 +130,10 @@ class TerranBot(sc2.BotAI):
             await manager.on_unit_destroyed(unit_tag)
 
     async def on_unit_created(self, unit):
+        print("UNIT", unit)
+        if unit.name not in TerranBot.builds:
+            TerranBot.builds[unit.name] = 0
+        TerranBot.builds[unit.name] += 1
         self.own_units[unit.tag] = unit
         for manager in self.managers:
             await manager.on_unit_created(unit)
@@ -137,14 +148,94 @@ class TerranBot(sc2.BotAI):
             await manager.on_building_construction_complete(unit)
 
 
+class Hydralisk(sc2.BotAI):
+    def select_target(self):
+        if self.known_enemy_structures.exists:
+            return random.choice(self.known_enemy_structures).position
+
+        return self.enemy_start_locations[0]
+
+    async def on_step(self, iteration):
+        larvae = self.units(UnitTypeId.LARVA)
+        forces = self.units(UnitTypeId.ZERGLING) | self.units(UnitTypeId.HYDRALISK)
+
+        if self.units(UnitTypeId.HYDRALISK).amount > 10 and iteration % 50 == 0:
+            for unit in forces.idle:
+                await self.do(unit.attack(self.select_target()))
+
+        if self.supply_left < 2:
+            if self.can_afford(UnitTypeId.OVERLORD) and larvae.exists:
+                await self.do(larvae.random.train(UnitTypeId.OVERLORD))
+                return
+
+        if self.units(UnitTypeId.HYDRALISKDEN).ready.exists:
+            if self.can_afford(UnitTypeId.HYDRALISK) and larvae.exists:
+                await self.do(larvae.random.train(UnitTypeId.HYDRALISK))
+                return
+
+        if not self.townhalls.exists:
+            for unit in self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.QUEEN) | forces:
+                await self.do(unit.attack(self.enemy_start_locations[0]))
+            return
+        else:
+            hq = self.townhalls.first
+
+        for queen in self.units(UnitTypeId.QUEEN).idle:
+            abilities = await self.get_available_abilities(queen)
+            if AbilityId.EFFECT_INJECTLARVA in abilities:
+                await self.do(queen(AbilityId.EFFECT_INJECTLARVA, hq))
+
+        if not (self.units(UnitTypeId.SPAWNINGPOOL).exists or self.already_pending(UnitTypeId.SPAWNINGPOOL)):
+            if self.can_afford(UnitTypeId.SPAWNINGPOOL):
+                await self.build(UnitTypeId.SPAWNINGPOOL, near=hq.position)
+
+        if self.units(UnitTypeId.SPAWNINGPOOL).ready.exists:
+            if not self.units(UnitTypeId.LAIR).exists and hq.noqueue:
+                if self.can_afford(UnitTypeId.LAIR):
+                    await self.do(hq.build(UnitTypeId.LAIR))
+
+        if self.units(UnitTypeId.LAIR).ready.exists:
+            if not (self.units(UnitTypeId.HYDRALISKDEN).exists or self.already_pending(UnitTypeId.HYDRALISKDEN)):
+                if self.can_afford(UnitTypeId.HYDRALISKDEN):
+                    await self.build(UnitTypeId.HYDRALISKDEN, near=hq.position)
+
+        if self.units(UnitTypeId.EXTRACTOR).amount < 2 and not self.already_pending(UnitTypeId.EXTRACTOR):
+            if self.can_afford(UnitTypeId.EXTRACTOR):
+                drone = self.workers.random
+                target = self.state.vespene_geyser.closest_to(drone.position)
+                err = await self.do(drone.build(UnitTypeId.EXTRACTOR, target))
+
+        if hq.assigned_harvesters < hq.ideal_harvesters:
+            if self.can_afford(UnitTypeId.DRONE) and larvae.exists:
+                larva = larvae.random
+                await self.do(larva.train(UnitTypeId.DRONE))
+                return
+
+        for a in self.units(UnitTypeId.EXTRACTOR):
+            if a.assigned_harvesters < a.ideal_harvesters:
+                w = self.workers.closer_than(20, a)
+                if w.exists:
+                    await self.do(w.random.gather(a))
+
+        if self.units(UnitTypeId.SPAWNINGPOOL).ready.exists:
+            if not self.units(UnitTypeId.QUEEN).exists and hq.is_ready and hq.noqueue:
+                if self.can_afford(UnitTypeId.QUEEN):
+                    await self.do(hq.train(UnitTypeId.QUEEN))
+
+        if self.units(UnitTypeId.ZERGLING).amount < 20 and self.minerals > 1000:
+            if larvae.exists and self.can_afford(UnitTypeId.ZERGLING):
+                await self.do(larvae.random.train(UnitTypeId.ZERGLING))
+
 def run_game(features):
 
     #return np.mean(features) - random.random()*0.1
     replay_name = f"replays/sc2bot_{int(time.time())}.sc2replay"
     # Multiple difficulties for enemy bots available https://github.com/Blizzard/s2client-api/blob/ce2b3c5ac5d0c85ede96cef38ee7ee55714eeb2f/include/sc2api/sc2_gametypes.h#L30
     try:
-        result = sc2.run_game(sc2.maps.get("(2)CatalystLE"),
-                                players=[Bot(Race.Terran, TerranBot(features=features, verbose=True)), Computer(Race.Zerg, Difficulty.Easy)],
+        # opponent = Bot(Race.Zerg, Hydralisk())
+        opponent = Computer(Race.Zerg, Difficulty.Easy)
+        result = sc2.run_game(sc2.maps.get("CatalystLE"),
+                                players=[Bot(Race.Terran, TerranBot(features=features, verbose=True)), opponent],
                                 save_replay_as=replay_name,
                                 realtime=False)
         return 0 if result.name == "Defeat" else (1 if result.name == "Victory" else 0.5)
@@ -153,114 +244,24 @@ def run_game(features):
         return 0
 
 
-def unique_rows(a):
-    """
-    A functions to trim repeated rows that may appear when optimizing.
-    This is necessary to avoid the sklearn GP object from breaking
+class Option:
 
-    :param a: array to trim repeated rows from
+    def __init__(self, cluster_id, features):
+        self.cluster_id = cluster_id
+        self.features = features
+        self.n = 0
+        self.wins = 0
+        self.builds = []
 
-    :return: mask of unique rows
-    """
+    def to_json(self):
+        return {
+            "cluster_id": self.cluster_id,
+            "features": str(self.features),
+            "n": self.n,
+            "wins": self.wins,
+            "builds": json.dumps(self.builds)
+        }
 
-    # Sort array and kep track of where things should go back to
-    order = np.lexsort(a.T)
-    reorder = np.argsort(order)
-
-    a = a[order]
-    diff = np.diff(a, axis=0)
-    ui = np.ones(len(a), 'bool')
-    ui[1:] = (diff != 0).any(axis=1)
-
-    return ui[reorder]
-
-
-n = 1e5
-x = y = np.linspace(0, 6, 300)
-X, Y = np.meshgrid(x, y)
-x = X.ravel()
-y = Y.ravel()
-X = np.vstack([x, y]).T[:, [1, 0]]
-#z = target(x, y)
-
-fig, axis = plt.subplots(1, 1, figsize=(14, 10))
-gridsize=150
-
-#im = axis.hexbin(x, y, C=z, gridsize=gridsize, cmap=cm.jet, bins=None, vmin=-0.9, vmax=2.1)
-#axis.axis([x.min(), x.max(), y.min(), y.max()])
-
-#cb = fig.colorbar(im, )
-#cb.set_label('Value')
-
-
-def posterior(bo, X):
-    ur = unique_rows(bo.X)
-    bo.gp.fit(bo.X[ur], bo.Y[ur])
-    mu, sigma2 = bo.gp.predict(X, eval_MSE=True)
-    return mu, np.sqrt(sigma2), bo.util.utility(X, bo.gp, bo.Y.max())
-
-
-def plot_grid(grid, iteration, std=False):
-    # plt.style.use('ggplot')
-
-    # brewer2mpl.get_map args: set name  set type  number of colors
-    # bmap = brewer2mpl.get_map('Set2', 'qualitative', 7)
-
-    # cmap = 'plasma'
-    # cmap = 'inferno'
-    # cmap = 'magma'
-    # cmap = 'viridis'
-
-    ax = sns.heatmap(grid, rasterized=True, linewidth=0, vmin=0, vmax=1)
-    fig = ax.get_figure()
-    #ax.axes.set_xlabel(grid.feature_b.title, fontsize=14)
-    #ax.axes.set_ylabel(grid.feature_a.title, fontsize=14)
-    ax.axes.set_xticklabels(np.arange(0, len(grid[0]), len(grid[0])))
-    ax.axes.set_yticklabels(np.arange(0, len(grid), len(grid)))
-    fig.show()
-    fig.savefig(f'bayes/bayesian_map_{iteration}{"_std" if std else ""}.pdf')
-
-
-def optimize(n=100):
-
-    '''
-    optimizer = BayesianOptimization(
-        f=None,
-        pbounds={'x': (0, 1), 'y': (0, 1)},
-        verbose=2,
-        random_state=1,
-    )
-    '''
-    j = 10
-    optimizer = pickle.load(open(f"bayes/optimizer_{j}.p", "rb"))
-    j += 1
-    utility = UtilityFunction(kind="ucb", kappa=2.5, xi=0.0)
-
-    points = []
-    for i in range(n):
-        next_point = optimizer.suggest(utility)
-        #plot_2d(optimizer, i)
-        print(next_point)
-        target = run_game([next_point['x'], next_point['y']])
-        optimizer.register(params=next_point, target=target)
-        print(target, next_point)
-        points.append((next_point, target))
-
-        pickle.dump(optimizer, open(f"bayes/optimizer_{i+j}.p", "wb"))
-        pickle.dump(points, open(f"bayes/points_{i+j}.p", "wb"))
-        #optimizer = pickle.load(open(f"bayes/optimizer_{i+1}.p", "wb"))
-
-        # Grid
-        size = 100
-        grid = []
-        for y in range(100):
-            grid.append([])
-            for x in range(100):
-                pred_mean, pred_std = optimizer._gp.predict([[x/size, y/size]], return_std=True)
-                grid[y].append(pred_mean[0])
-
-        plot_grid(grid, i+j)
-        print(optimizer.max)
 
 def main():
 
@@ -286,38 +287,24 @@ def main():
 
     no_features = []
 
-    results = []
+    options = [
+        Option(10, features_10),
+        Option(11, features_11),
+        Option(30, features_30),
+        Option(32, features_32)
+    ]
+
     for i in range(100):
-        print(f"Game {i}")
-        result = run_game(no_features)
-        print(result)
-        results.append(results)
-    #optimize(100)
+        for option in options:
+            result = run_game(option.features)
+            option.builds.append(TerranBot.builds)
+            option.wins += 1 if result > 0 else 0
+            option.n += 1
 
-    print("---- RESULTS ----")
-    for result in results:
-        print(f"result{result}")
+    pickle.dump(options, open("options.p", "wb"))
+    with open("options.json", "w") as f:
+        f.write(str([option.to_json() for option in options]))
 
-    '''
-    for i in range(1, 100):
-        optimizer = pickle.load(open(f"bayes/optimizer_{i}.p", "rb"))
-
-        # Grid
-        size = 100
-        grid_std = []
-        grid = []
-        for y in range(size):
-            grid.append([])
-            grid_std.append([])
-            for x in range(size):
-                pred_mean, pred_std = optimizer._gp.predict([[x / size, y / size]], return_std=True)
-                grid[y].append(pred_mean[0])
-                grid_std[y].append(pred_std[0])
-
-        plot_grid(grid, i)
-        plot_grid(grid_std, i, std=True)
-        print(optimizer.max)
-    '''
 
 if __name__ == '__main__':
     main()
