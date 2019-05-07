@@ -7,6 +7,8 @@ import random
 import time
 import math
 import sc2
+import json
+import pickle
 from sc2 import Race, Difficulty, UnitTypeId, AbilityId
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from sc2.player import Bot, Computer
@@ -33,8 +35,6 @@ from matplotlib import gridspec
 from matplotlib import cm
 from matplotlib import mlab
 
-AIBuild = enum.Enum("AIBuild", sc_pb.AIBuild.items())
-
 
 class TerranBot(sc2.BotAI):
 
@@ -42,7 +42,7 @@ class TerranBot(sc2.BotAI):
 
     def __init__(self, features, verbose=True):
         super().__init__()
-        builds = {}
+        TerranBot.builds = {}
         self.iteration = 0
         self.verbose = verbose
         self.worker_manager = SimpleWorkerManager(self)
@@ -134,6 +134,7 @@ class TerranBot(sc2.BotAI):
             await manager.on_unit_destroyed(unit_tag)
 
     async def on_unit_created(self, unit):
+        print("UNIT", unit)
         if unit.name not in TerranBot.builds:
             TerranBot.builds[unit.name] = 0
         TerranBot.builds[unit.name] += 1
@@ -235,8 +236,11 @@ def run_game(features):
     replay_name = f"replays/sc2bot_{int(time.time())}.sc2replay"
     # Multiple difficulties for enemy bots available https://github.com/Blizzard/s2client-api/blob/ce2b3c5ac5d0c85ede96cef38ee7ee55714eeb2f/include/sc2api/sc2_gametypes.h#L30
     try:
-        result = sc2.run_game(sc2.maps.get("(2)CatalystLE"),
-                                players=[Bot(Race.Terran, TerranBot(features=features, verbose=True)), Bot(Race.Zerg, Hydralisk())],
+
+        opponent = Bot(Race.Zerg, Hydralisk())
+        # opponent = Computer(Race.Zerg, Difficulty.Easy)
+        result = sc2.run_game(sc2.maps.get("CatalystLE"),
+                                players=[Bot(Race.Terran, TerranBot(features=features, verbose=True)), opponent],
                                 save_replay_as=replay_name,
                                 realtime=False)
         return 0 if result.name == "Defeat" else (1 if result.name == "Victory" else 0.5)
@@ -253,6 +257,15 @@ class Option:
         self.n = 0
         self.wins = 0
         self.builds = []
+
+    def to_json(self):
+        return {
+            "cluster_id": self.cluster_id,
+            "features": str(self.features),
+            "n": self.n,
+            "wins": self.wins,
+            "builds": json.dumps(self.builds)
+        }
 
 
 def main():
@@ -294,7 +307,9 @@ def main():
             option.wins += 1 if result > 0 else 0
             option.n += 1
 
-    print(result)
+    pickle.dump(options, open("options.p", "wb"))
+    with open("options.json", "w") as f:
+        f.write(str([option.to_json() for option in options]))
 
 if __name__ == '__main__':
     main()

@@ -27,6 +27,16 @@ class MLPProductionManager(ProductionManager):
         self.action_dict = json.load(open("data/action_encoder_3.json"))
         self.inv_action_dict = {v: k for k, v in self.action_dict.items()}
         self.columns_maxes = json.load(open("data/all_columns_maxes_2.json"))
+        self.input_columns = json.load(open("data/all_columns_1552989984.json"))
+
+        # model_name = "models_without_time/TvZ_3x256_no_frame_id_1552989984_state_dict"
+
+        #model_name = "models_without_time/TvZ_3x256_no_frame_id_1552990154_state_dict_1D"
+        #model_name = "models_without_time/TvZ_3x256_no_frame_id_1552990347_state_dict_2D"
+        # model_name = "models_features/TvZ_3x256_units_89_1554321386_0_state_dict"
+
+        # self.input_columns = json.load(open("data/all_columns_1556133853.json"))
+        self.input_columns = json.load(open("data/all_columns_1556130494.json"))
 
         # model_name = "models_without_time/TvZ_3x256_no_frame_id_1552989984_state_dict"
 
@@ -187,10 +197,10 @@ class MLPProductionManager(ProductionManager):
                 row.append(observation.player_common.vespene)
             elif column == "supply_used":
                 row.append(observation.player_common.food_used)
-            elif column == "supply_total":
-                row.append(observation.player_common.food_cap)
             elif column == "supply_available":
                 row.append(observation.player_common.food_cap - observation.player_common.food_used)
+            elif column == "supply_total":
+                row.append(observation.player_common.food_cap)
             elif column == "supply_army":
                 row.append(observation.player_common.food_army)
             elif column == "supply_workers":

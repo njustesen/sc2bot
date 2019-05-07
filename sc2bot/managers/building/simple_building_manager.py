@@ -92,6 +92,7 @@ class SimpleBuildingManager(BuildingManager):
 
         self.requirements = {
             UnitTypeId.FACTORY: [UnitTypeId.BARRACKS, UnitTypeId.REFINERY],
+            UnitTypeId.BUNKER: [UnitTypeId.BARRACKS, UnitTypeId.ENGINEERINGBAY],
             UnitTypeId.STARPORT: [UnitTypeId.FACTORY, UnitTypeId.REFINERY],
             UnitTypeId.BARRACKS: [UnitTypeId.COMMANDCENTER],
             UnitTypeId.ENGINEERINGBAY: [UnitTypeId.COMMANDCENTER],
