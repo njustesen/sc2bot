@@ -153,9 +153,11 @@ class SimpleBuildingManager(BuildingManager):
                     if unit in self.add_on_requirement:
                         for add_on in self.bot.units(self.add_on_requirement[unit]).ready:
                             if add_on.tag == building.add_on_tag:
+                                #print(unit.name)
                                 self.actions.append(building.train(unit))
                                 return
                     else:
+                        #print(unit.name)
                         self.actions.append(building.train(unit))
                         return
 

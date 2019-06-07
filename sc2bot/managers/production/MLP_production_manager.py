@@ -17,7 +17,7 @@ class MLPProductionManager(ProductionManager):
     is getting into the input for the model. It accepts also a pair of
     features.
     '''
-    def __init__(self, bot, worker_manager, building_manager, request_freq=22, reset_freq=22*10, features=[]):
+    def __init__(self, bot, worker_manager, building_manager, request_freq=22, reset_freq=22*10, features=[], model_name=None):
         super().__init__(bot, worker_manager, building_manager)
 
         self.request_freq = request_freq
@@ -44,10 +44,11 @@ class MLPProductionManager(ProductionManager):
         #model_name = "models_without_time/TvZ_3x256_no_frame_id_1552990347_state_dict_2D"
         #model_name = "models_features/TvZ_3x256_units_89_1554321386_0_state_dict"
 
-        if len(features) == 0:
-            model_name = "1556130494_TvZ_3x256_no_features_19_3_state_dict"
-        else:
-            model_name = "1556133853_TvZ_3x256_2D_features_69_1_state_dict"
+        if model_name is None:
+            if len(features) == 0:
+                model_name = "1556130494_TvZ_3x256_no_features_19_3_state_dict"
+            else:
+                model_name = "1556133853_TvZ_3x256_2D_features_69_1_state_dict"
 
         self.input_columns = json.load(open("data/all_columns_1556130494.json"))
 
