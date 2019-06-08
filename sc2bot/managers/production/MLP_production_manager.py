@@ -17,7 +17,7 @@ class MLPProductionManager(ProductionManager):
     is getting into the input for the model. It accepts also a pair of
     features.
     '''
-    def __init__(self, bot, worker_manager, building_manager, request_freq=22, reset_freq=22*10, features=[]):
+    def __init__(self, bot, worker_manager, building_manager, request_freq=22, reset_freq=22*10, features=[], model_name=None):
         super().__init__(bot, worker_manager, building_manager)
 
         self.request_freq = request_freq
@@ -44,10 +44,13 @@ class MLPProductionManager(ProductionManager):
         #model_name = "models_without_time/TvZ_3x256_no_frame_id_1552990347_state_dict_2D"
         #model_name = "models_features/TvZ_3x256_units_89_1554321386_0_state_dict"
 
-        if len(features) == 0:
-            model_name = "1556130494_TvZ_3x256_no_features_19_3_state_dict"
-        else:
-            model_name = "1556133853_TvZ_3x256_2D_features_69_1_state_dict"
+        if model_name is None:
+            if len(features) == 0:
+                model_name = "1556130494_TvZ_3x256_no_features_19_3_state_dict"
+            else:
+                model_name = "1556133853_TvZ_3x256_2D_features_69_1_state_dict"
+
+        self.input_columns = json.load(open("data/all_columns_1556130494.json"))
 
         # scalers = joblib.load("../data/scalers.json")
         self.bot.print("Loading model")
@@ -199,8 +202,6 @@ class MLPProductionManager(ProductionManager):
                 row.append(observation.player_common.food_cap - observation.player_common.food_used)
             elif column == "supply_total":
                 row.append(observation.player_common.food_cap)
-            elif column == "supply_available":
-                row.append(observation.player_common.food_cap - observation.player_common.food_used)
             elif column == "supply_army":
                 row.append(observation.player_common.food_army)
             elif column == "supply_workers":
@@ -386,6 +387,8 @@ class MLPProductionManager(ProductionManager):
         build_name = action_name.split("_")[1]
         self.bot.print(build_name)
 
+        build_name = "COMMANDCENTER"
+
         if action_type == "train":
             self.bot.print(f"ProductionManager: train {build_name}.")
             unit_type = UnitTypeId[build_name.upper()]
@@ -457,16 +460,18 @@ class MLPProductionManager(ProductionManager):
     def _init_abilites(self):
         self.bot.print("Initializing abilities")
         for upgrade_type in UpgradeId:
-            ability = self.bot.game_data().upgrades[upgrade_type.value].research_ability
-            if ability is None:
-                continue
-            self.research_abilities[ability.id] = upgrade_type
-        for unit_type in UnitTypeId:
-            if unit_type.value in self.bot.game_data().units:
-                ability = self.bot.game_data().units[unit_type.value].creation_ability
+            if upgrade_type.value in self.bot.game_data().upgrades.keys():
+                ability = self.bot.game_data().upgrades[upgrade_type.value].research_ability
                 if ability is None:
                     continue
-                self.unit_abilities[ability.id] = unit_type
+                self.research_abilities[ability.id] = upgrade_type
+        for unit_type in UnitTypeId:
+            if unit_type.value in self.bot.game_data().units:
+                if unit_type.value in self.bot.game_data().units.keys():
+                    ability = self.bot.game_data().units[unit_type.value].creation_ability
+                    if ability is None:
+                        continue
+                    self.unit_abilities[ability.id] = unit_type
 
     async def on_building_construction_started(self, unit):
         if self.build_action is not None and self.build_action == unit.type_id:
