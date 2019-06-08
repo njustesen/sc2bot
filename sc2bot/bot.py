@@ -150,6 +150,104 @@ class TerranBot(sc2.BotAI):
             await manager.on_building_construction_complete(unit)
 
 
+class ZergRushBot(sc2.BotAI):
+    def __init__(self):
+        self.drone_counter = 0
+        self.extractor_started = False
+        self.spawning_pool_started = False
+        self.moved_workers_to_gas = False
+        self.moved_workers_from_gas = False
+        self.queeen_started = False
+        self.mboost_started = False
+
+    async def on_step(self, iteration):
+        if iteration == 0:
+            await self.chat_send("(glhf)")
+
+        if not self.units(UnitTypeId.HATCHERY).ready.exists:
+            for unit in self.workers | self.units(UnitTypeId.ZERGLING) | self.units(UnitTypeId.QUEEN):
+                await self.do(unit.attack(self.enemy_start_locations[0]))
+            return
+
+        hatchery = self.units(UnitTypeId.HATCHERY).ready.first
+        larvae = self.units(UnitTypeId.LARVA)
+
+        target = self.known_enemy_structures.random_or(self.enemy_start_locations[0]).position
+        for zl in self.units(UnitTypeId.ZERGLING).idle:
+            await self.do(zl.attack(target))
+
+        for queen in self.units(UnitTypeId.QUEEN).idle:
+            abilities = await self.get_available_abilities(queen)
+            if AbilityId.EFFECT_INJECTLARVA in abilities:
+                await self.do(queen(UnitTypeId.EFFECT_INJECTLARVA, hatchery))
+
+        if self.vespene >= 100:
+            '''
+            sp = self.units(UnitTypeId.SPAWNINGPOOL).ready
+            if sp.exists and self.minerals >= 100 and not self.mboost_started:
+                await self.do(sp.first(RESEARCH_ZERGLINGMETABOLICBOOST))
+                self.mboost_started = True
+            '''
+            if not self.moved_workers_from_gas:
+                self.moved_workers_from_gas = True
+                for drone in self.workers:
+                    m = self.state.mineral_field.closer_than(10, drone.position)
+                    await self.do(drone.gather(m.random, queue=True))
+
+
+        if self.supply_left < 2:
+            if self.can_afford(UnitTypeId.OVERLORD) and larvae.exists:
+                await self.do(larvae.random.train(UnitTypeId.OVERLORD))
+
+        if self.units(UnitTypeId.SPAWNINGPOOL).ready.exists:
+            if larvae.exists and self.can_afford(UnitTypeId.ZERGLING):
+                await self.do(larvae.random.train(UnitTypeId.ZERGLING))
+
+        if self.units(UnitTypeId.EXTRACTOR).ready.exists and not self.moved_workers_to_gas:
+            self.moved_workers_to_gas = True
+            extractor = self.units(UnitTypeId.EXTRACTOR).first
+            for drone in self.workers.random_group_of(3):
+                await self.do(drone.gather(extractor))
+
+        if self.minerals > 500 and self.workers.exists:
+            for d in range(4, 15):
+                pos = hatchery.position.to2.towards(self.game_info.map_center, d)
+                if await self.can_place(UnitTypeId.HATCHERY, pos):
+                    self.spawning_pool_started = True
+                    await self.do(self.workers.random.build(UnitTypeId.HATCHERY, pos))
+                    break
+
+        if self.drone_counter < 3:
+            if self.can_afford(UnitTypeId.DRONE):
+                self.drone_counter += 1
+                await self.do(larvae.random.train(UnitTypeId.DRONE))
+
+        if not self.extractor_started:
+            if self.can_afford(UnitTypeId.EXTRACTOR) and self.workers.exists:
+                drone = self.workers.random
+                target = self.state.vespene_geyser.closest_to(drone.position)
+                err = await self.do(drone.build(UnitTypeId.EXTRACTOR, target))
+                if not err:
+                    self.extractor_started = True
+
+        elif not self.spawning_pool_started:
+            if self.can_afford(UnitTypeId.SPAWNINGPOOL) and self.workers.exists:
+                for d in range(4, 15):
+                    pos = hatchery.position.to2.towards(self.game_info.map_center, d)
+                    if await self.can_place(UnitTypeId.SPAWNINGPOOL, pos):
+                        drone = self.workers.closest_to(pos)
+                        err = await self.do(drone.build(UnitTypeId.SPAWNINGPOOL, pos))
+                        if not err:
+                            self.spawning_pool_started = True
+                            break
+
+        elif not self.queeen_started and self.units(UnitTypeId.SPAWNINGPOOL).ready.exists:
+            if self.can_afford(UnitTypeId.QUEEN):
+                r = await self.do(hatchery.train(UnitTypeId.QUEEN))
+                if not r:
+                    self.queeen_started = True
+
+
 class Hydralisk(sc2.BotAI):
     def select_target(self):
         if self.known_enemy_structures.exists:
@@ -186,6 +284,12 @@ class Hydralisk(sc2.BotAI):
             abilities = await self.get_available_abilities(queen)
             if AbilityId.EFFECT_INJECTLARVA in abilities:
                 await self.do(queen(AbilityId.EFFECT_INJECTLARVA, hq))
+
+        if not self.townhalls.amount < 2:
+            if self.can_afford(UnitTypeId.HATCHERY):
+                loc = await self.get_next_expansion()
+                await self.build(UnitTypeId.HATCHERY, near=loc)
+                return
 
         if not (self.units(UnitTypeId.SPAWNINGPOOL).exists or self.already_pending(UnitTypeId.SPAWNINGPOOL)):
             if self.can_afford(UnitTypeId.SPAWNINGPOOL):
@@ -224,31 +328,36 @@ class Hydralisk(sc2.BotAI):
                 if self.can_afford(UnitTypeId.QUEEN):
                     await self.do(hq.train(UnitTypeId.QUEEN))
 
-        if self.units(UnitTypeId.ZERGLING).amount < 20 and self.minerals > 1000:
+        if self.units(UnitTypeId.ZERGLING).amount < 4 and self.minerals > 1000:
             if larvae.exists and self.can_afford(UnitTypeId.ZERGLING):
                 await self.do(larvae.random.train(UnitTypeId.ZERGLING))
 
-def run_game(features, cluster_id=None):
+def run_game(features, opp, cluster_id=None):
 
     #return np.mean(features) - random.random()*0.1
     replay_name = f"replays/sc2bot_{int(time.time())}.sc2replay"
     # Multiple difficulties for enemy bots available https://github.com/Blizzard/s2client-api/blob/ce2b3c5ac5d0c85ede96cef38ee7ee55714eeb2f/include/sc2api/sc2_gametypes.h#L30
+    if cluster_id is not None:
+        tbot = TerranBot(features=features, verbose=False, model_name=f'cluster{cluster_id}')
+    else:
+        tbot = TerranBot(features=features, verbose=False)
     try:
+        if opp == "easy":
+            opponent = Computer(Race.Zerg, Difficulty.Easy)
+        elif opp == "hydra":
+            opponent = Bot(Race.Zerg, Hydralisk())
+        elif opp == "zerg":
+            opponent = Bot(Race.Zerg, Zerg())
 
-        # opponent = Bot(Race.Zerg, Hydralisk())
-        opponent = Computer(Race.Zerg, Difficulty.Easy)
-        if cluster_id is not None:
-            tbot = TerranBot(features=features, verbose=False, model_name=f'cluster{cluster_id}')
-        else:
-            tbot = TerranBot(features=features, verbose=False)
         result = sc2.run_game(sc2.maps.get("(2)CatalystLE"),
                                 players=[Bot(Race.Terran, tbot), opponent],
                                 save_replay_as=replay_name,
                                 realtime=False)
-        return 0 if result.name == "Defeat" else (1 if result.name == "Victory" else 0.5), tbot
+        return 0 if result[0].name == "Defeat" else (1 if result[0].name == "Victory" else 0.5), tbot
     except Exception as e:
+        # raise e
         print(e)
-        return 0
+        return 0, tbot
 
 
 class Option:
@@ -258,6 +367,7 @@ class Option:
         self.features = features
         self.n = 0
         self.wins = 0
+        self.draws = 0
         self.builds = []
 
     def to_json(self):
@@ -266,12 +376,13 @@ class Option:
             "features": self.features,
             "n": self.n,
             "wins": self.wins,
+            "draws": self.draws,
             "builds": self.builds
         }
 
 
 
-def main():
+def main(n):
 
     if True:
         # Cluster 10 units
@@ -296,17 +407,17 @@ def main():
 
         no_features = []
 
-        '''
+
         options = [
             Option(10, features_10),
             Option(11, features_11),
             Option(30, features_30),
             Option(32, features_32)
         ]
-        '''
-        options = [Option(10000, no_features)]
 
-        n = 100
+        #options = [Option(10000, no_features)]
+
+        #optinons = [Option(10, features_10)]
 
         for i in range(n):
             for option in options:
@@ -314,6 +425,7 @@ def main():
                 print(result)
                 option.builds.append(bot.builds)
                 option.wins += 1 if result > 0 else 0
+                option.draws += 0.5 if result == 0.5 else 0
                 option.n += 1
                 print(json.dumps(option.builds))
 
@@ -380,13 +492,13 @@ def analyse(n):
         print(json.dumps(builds))
 
 
-def analyse_ucb(n):
-    options = pickle.load(open(f"ucb_options_{n}.p", "rb"))
+def analyse_ucb(n, name):
+    options = pickle.load(open(f"ucb_{name}_options_{n}.p", "rb"))
     builds = []
     all_builds = {}
     for option in options:
         print("Cluster ID", option.cluster_id)
-        print(f"Wins {option.wins}/{option.n}")
+        print(f"Wins/Draws/Losses/Games {option.wins}/{option.draws}/{option.n-option.wins-option.draws}/{option.n}")
 
         for b_dict in option.builds:
             for build, c in b_dict.items():
@@ -451,7 +563,7 @@ class UCB1():
         self.values[chosen_arm] = new_value
         return
 
-def ucb():
+def ucb(n, opp):
     # Cluster 10 units
     # ['Hellion', 'Cyclone', 'Marine', 'WidowMine', 'Reaper', 'Thor', 'SiegeTank', 'Liberator', 'Banshee', 'Raven', 'Medivac', 'Marauder', 'VikingFighter']
     # Centroid of cluster 10 with position (0.02123669907450676,0.5240920186042786)
@@ -483,8 +595,7 @@ def ucb():
 
     # options = [Option(10000, no_features)]
 
-    n = 100
-    wins = 0
+    results = []
 
     ucb1 = UCB1()
     ucb1.initialize(len(options))
@@ -492,20 +603,24 @@ def ucb():
     for i in range(n):
         option_idx = ucb1.select_arm()
         option = options[option_idx]
-        result, bot = run_game(option.features)
+        result, bot = run_game(option.features, opp=opp)
         print(result)
         option.builds.append(bot.builds)
         option.wins += 1 if result > 0 else 0
-        wins += 1 if result > 0 else 0
+        option.draws += 0.5 if result == 0.5 else 0
+        results.append(result)
         option.n += 1
-        ucb1.update(option_idx, 1 if result > 0 else 0)
+        ucb1.update(option_idx, result)
         print(json.dumps(option.builds))
 
-        pickle.dump(options, open(f"ucb_options_{n}.p", "wb"))
-        with open(f"ucb_options_{n}.json", "w") as f:
+        pickle.dump(options, open(f"ucb_{opp}_options_{n}.p", "wb"))
+        with open(f"ucb_{opp}_options_{n}.json", "w") as f:
             f.write(str([option.to_json() for option in options]))
 
-    options = pickle.load(open(f"ucb_options_{n}.p", "rb"))
+    print(results)
+    print(np.mean(results))
+
+    options = pickle.load(open(f"ucb_{opp}_options_{n}.p", "rb"))
     for option in options:
         print("Cluster ID", option.cluster_id)
         print("Wins", option.wins)
@@ -564,6 +679,7 @@ def clusters(n):
 if __name__ == '__main__':
     #main()
     #analyse(100)
-    #ucb()
-    analyse_ucb(100)
+    ucb(100, "hydra")
+    ucb(100, "zerg")
+    #analyse_ucb(100, "hydra")
     #clusters(100)
