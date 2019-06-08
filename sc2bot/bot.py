@@ -249,9 +249,22 @@ class ZergRushBot(sc2.BotAI):
 
 
 class Hydralisk(sc2.BotAI):
+
+    def __init__(self):
+        super().__init__()
+        self.search = False
+        self.s = 0
+        self.searching = None
+
     def select_target(self):
         if self.known_enemy_structures.exists:
             return random.choice(self.known_enemy_structures).position
+
+        if self.search:
+            if self.s % 50 == 0:
+                self.searching = self.enemy_start_locations[0].random_on_distance(50)
+            self.s += 1
+            return self.searching
 
         return self.enemy_start_locations[0]
 
@@ -259,7 +272,10 @@ class Hydralisk(sc2.BotAI):
         larvae = self.units(UnitTypeId.LARVA)
         forces = self.units(UnitTypeId.ZERGLING) | self.units(UnitTypeId.HYDRALISK)
 
-        if self.units(UnitTypeId.HYDRALISK).amount > 10 and iteration % 50 == 0:
+        if self.units(UnitTypeId.HYDRALISK).exists and self.units(UnitTypeId.HYDRALISK).closest_distance_to(self.enemy_start_locations[0]) < 10 and not self.known_enemy_structures.exists:
+            self.search = True
+
+        if self.units(UnitTypeId.HYDRALISK).amount > 6 and iteration % 50 == 0:
             for unit in forces.idle:
                 await self.do(unit.attack(self.select_target()))
 
@@ -336,6 +352,10 @@ def run_game(features, opp, cluster_id=None):
 
     #return np.mean(features) - random.random()*0.1
     replay_name = f"replays/sc2bot_{int(time.time())}.sc2replay"
+    if cluster_id is not None:
+        tbot = TerranBot(features=features, verbose=False, model_name=f'cluster{cluster_id}')
+    else:
+        tbot = TerranBot(features=features, verbose=False)
     # Multiple difficulties for enemy bots available https://github.com/Blizzard/s2client-api/blob/ce2b3c5ac5d0c85ede96cef38ee7ee55714eeb2f/include/sc2api/sc2_gametypes.h#L30
     if cluster_id is not None:
         tbot = TerranBot(features=features, verbose=False, model_name=f'cluster{cluster_id}')

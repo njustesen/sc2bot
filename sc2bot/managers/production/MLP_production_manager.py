@@ -387,6 +387,8 @@ class MLPProductionManager(ProductionManager):
         build_name = action_name.split("_")[1]
         self.bot.print(build_name)
 
+        build_name = "COMMANDCENTER"
+
         if action_type == "train":
             self.bot.print(f"ProductionManager: train {build_name}.")
             unit_type = UnitTypeId[build_name.upper()]
