@@ -159,27 +159,43 @@ class ZergRushBot(sc2.BotAI):
         self.moved_workers_from_gas = False
         self.queeen_started = False
         self.mboost_started = False
+        self.search = False
+        self.s = 0
+        self.searching = None
+
+    def select_target(self):
+        if self.known_enemy_structures.exists:
+            return random.choice(self.known_enemy_structures).position
+
+        if self.search:
+            if self.s % 50 == 0:
+                self.searching = self.enemy_start_locations[0].random_on_distance(50)
+            self.s += 1
+            print(self.searching)
+            return self.searching
+
+        return self.enemy_start_locations[0]
 
     async def on_step(self, iteration):
+
+        if self.units(UnitTypeId.ZERGLING).exists and self.units(UnitTypeId.ZERGLING).closest_distance_to(self.enemy_start_locations[0]) < 10 and not self.known_enemy_structures.exists:
+            self.search = True
+            print("Searching")
+
         if iteration == 0:
             await self.chat_send("(glhf)")
 
         if not self.units(UnitTypeId.HATCHERY).ready.exists:
             for unit in self.workers | self.units(UnitTypeId.ZERGLING) | self.units(UnitTypeId.QUEEN):
-                await self.do(unit.attack(self.enemy_start_locations[0]))
+                await self.do(unit.attack(self.select_target()))
             return
 
         hatchery = self.units(UnitTypeId.HATCHERY).ready.first
         larvae = self.units(UnitTypeId.LARVA)
 
-        target = self.known_enemy_structures.random_or(self.enemy_start_locations[0]).position
-        for zl in self.units(UnitTypeId.ZERGLING).idle:
-            await self.do(zl.attack(target))
-
-        for queen in self.units(UnitTypeId.QUEEN).idle:
-            abilities = await self.get_available_abilities(queen)
-            if AbilityId.EFFECT_INJECTLARVA in abilities:
-                await self.do(queen(UnitTypeId.EFFECT_INJECTLARVA, hatchery))
+        if self.units(UnitTypeId.ZERGLING).amount > 12:
+            for zl in self.units(UnitTypeId.ZERGLING).idle:
+                await self.do(zl.attack(self.select_target()))
 
         if self.vespene >= 100:
             '''
@@ -194,14 +210,9 @@ class ZergRushBot(sc2.BotAI):
                     m = self.state.mineral_field.closer_than(10, drone.position)
                     await self.do(drone.gather(m.random, queue=True))
 
-
         if self.supply_left < 2:
             if self.can_afford(UnitTypeId.OVERLORD) and larvae.exists:
                 await self.do(larvae.random.train(UnitTypeId.OVERLORD))
-
-        if self.units(UnitTypeId.SPAWNINGPOOL).ready.exists:
-            if larvae.exists and self.can_afford(UnitTypeId.ZERGLING):
-                await self.do(larvae.random.train(UnitTypeId.ZERGLING))
 
         if self.units(UnitTypeId.EXTRACTOR).ready.exists and not self.moved_workers_to_gas:
             self.moved_workers_to_gas = True
@@ -209,19 +220,17 @@ class ZergRushBot(sc2.BotAI):
             for drone in self.workers.random_group_of(3):
                 await self.do(drone.gather(extractor))
 
-        if self.minerals > 500 and self.workers.exists:
-            for d in range(4, 15):
-                pos = hatchery.position.to2.towards(self.game_info.map_center, d)
-                if await self.can_place(UnitTypeId.HATCHERY, pos):
-                    self.spawning_pool_started = True
-                    await self.do(self.workers.random.build(UnitTypeId.HATCHERY, pos))
-                    break
+        if self.units(UnitTypeId.SPAWNINGPOOL).ready.exists:
+            if larvae.exists and larvae.amount >= 3 and self.can_afford(UnitTypeId.ZERGLING):
+                if iteration % 100 == 0:
+                    await self.do(larvae.random.train(UnitTypeId.ZERGLING))
 
+        '''
         if self.drone_counter < 3:
             if self.can_afford(UnitTypeId.DRONE):
                 self.drone_counter += 1
                 await self.do(larvae.random.train(UnitTypeId.DRONE))
-
+        '''
         if not self.extractor_started:
             if self.can_afford(UnitTypeId.EXTRACTOR) and self.workers.exists:
                 drone = self.workers.random
@@ -284,11 +293,6 @@ class Hydralisk(sc2.BotAI):
                 await self.do(larvae.random.train(UnitTypeId.OVERLORD))
                 return
 
-        if self.units(UnitTypeId.HYDRALISKDEN).ready.exists:
-            if self.can_afford(UnitTypeId.HYDRALISK) and larvae.exists:
-                await self.do(larvae.random.train(UnitTypeId.HYDRALISK))
-                return
-
         if not self.townhalls.exists:
             for unit in self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.QUEEN) | forces:
                 await self.do(unit.attack(self.enemy_start_locations[0]))
@@ -296,10 +300,11 @@ class Hydralisk(sc2.BotAI):
         else:
             hq = self.townhalls.first
 
-        for queen in self.units(UnitTypeId.QUEEN).idle:
-            abilities = await self.get_available_abilities(queen)
-            if AbilityId.EFFECT_INJECTLARVA in abilities:
-                await self.do(queen(AbilityId.EFFECT_INJECTLARVA, hq))
+        if hq.assigned_harvesters < hq.ideal_harvesters:
+            if self.can_afford(UnitTypeId.DRONE) and larvae.exists:
+                larva = larvae.random
+                await self.do(larva.train(UnitTypeId.DRONE))
+                return
 
         if not self.townhalls.amount < 2:
             if self.can_afford(UnitTypeId.HATCHERY):
@@ -327,12 +332,18 @@ class Hydralisk(sc2.BotAI):
                 target = self.state.vespene_geyser.closest_to(drone.position)
                 err = await self.do(drone.build(UnitTypeId.EXTRACTOR, target))
 
+        if self.units(UnitTypeId.HYDRALISKDEN).ready.exists:
+            if self.can_afford(UnitTypeId.HYDRALISK) and larvae.exists:
+                await self.do(larvae.random.train(UnitTypeId.HYDRALISK))
+                return
+
+        '''
         if hq.assigned_harvesters < hq.ideal_harvesters:
             if self.can_afford(UnitTypeId.DRONE) and larvae.exists:
                 larva = larvae.random
                 await self.do(larva.train(UnitTypeId.DRONE))
                 return
-
+        '''
         for a in self.units(UnitTypeId.EXTRACTOR):
             if a.assigned_harvesters < a.ideal_harvesters:
                 w = self.workers.closer_than(20, a)
@@ -367,7 +378,7 @@ def run_game(features, opp, cluster_id=None):
         elif opp == "hydra":
             opponent = Bot(Race.Zerg, Hydralisk())
         elif opp == "zerg":
-            opponent = Bot(Race.Zerg, Zerg())
+            opponent = Bot(Race.Zerg, ZergRushBot())
 
         result = sc2.run_game(sc2.maps.get("(2)CatalystLE"),
                                 players=[Bot(Race.Terran, tbot), opponent],
@@ -700,6 +711,6 @@ if __name__ == '__main__':
     #main()
     #analyse(100)
     ucb(100, "hydra")
-    ucb(100, "zerg")
+    #ucb(100, "zerg")
     #analyse_ucb(100, "hydra")
     #clusters(100)
