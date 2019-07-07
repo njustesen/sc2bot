@@ -47,9 +47,9 @@ class TerranBot(sc2.BotAI):
         self.army_manager = AdvancedArmyManager(self)
         self.assault_manager = ValueBasedAssaultManager(self, self.army_manager, self.worker_manager)
         self.building_manager = SimpleBuildingManager(self, self.worker_manager)
-        self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, features=features, model_name=model_name)
+        # self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, features=features, model_name=model_name)
         # self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, "old/TvZ_3x128_features_None_1552640939", features=[0.5, 0.5])
-        # self.production_manager = MarineProductionManager(self, self.worker_manager, self.building_manager)
+        self.production_manager = MarineProductionManager(self, self.worker_manager, self.building_manager)
         # self.production_manager = ReaperMarineProductionManager(self, self.worker_manager, self.building_manager)
         # self.production_manager = OrbitalProductionManager(self, self.worker_manager, self.building_manager)
         self.scouting_manager = SimpleScoutingManager(self, self.worker_manager, self.building_manager)
@@ -258,7 +258,6 @@ class ZergRushBot(sc2.BotAI):
 
 
 class Hydralisk(sc2.BotAI):
-
     def __init__(self):
         super().__init__()
         self.search = False
@@ -359,7 +358,7 @@ class Hydralisk(sc2.BotAI):
             if larvae.exists and self.can_afford(UnitTypeId.ZERGLING):
                 await self.do(larvae.random.train(UnitTypeId.ZERGLING))
 
-def run_game(features, opp, cluster_id=None):
+def run_game(features, opp, cluster_id=None, comment=""):
 
     #return np.mean(features) - random.random()*0.1
     replay_name = f"replays/sc2bot_{int(time.time())}.sc2replay"
@@ -413,8 +412,7 @@ class Option:
 
 
 
-def main(n):
-
+def main(n, comment=""):
     if True:
         # Cluster 10 units
         # ['Hellion', 'Cyclone', 'Marine', 'WidowMine', 'Reaper', 'Thor', 'SiegeTank', 'Liberator', 'Banshee', 'Raven', 'Medivac', 'Marauder', 'VikingFighter']
@@ -452,7 +450,7 @@ def main(n):
 
         for i in range(n):
             for option in options:
-                result, bot = run_game(option.features)
+                result, bot = run_game(option.features, "easy", comment=comment)
                 print(result)
                 option.builds.append(bot.builds)
                 option.wins += 1 if result > 0 else 0
@@ -708,9 +706,13 @@ def clusters(n):
                 print(f"\t{build}: {(all_builds[build] / option.n)}")
 
 if __name__ == '__main__':
-    #main()
+    # main(1, comment="test")
     # analyse(100)
-    ucb(100, "hydra")
+    # ucb(100, "hydra")
     #ucb(100, "zerg")
     #analyse_ucb(100, "hydra")
     #clusters(100)
+    result = sc2.run_game(sc2.maps.get("(2)CatalystLE"),
+                            players=[Bot(Race.Zerg, Hydralisk()), Computer(Race.Zerg, Difficulty.Easy)],
+                            save_replay_as="two_bots",
+                            realtime=False)
