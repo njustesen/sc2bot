@@ -180,12 +180,19 @@ class SimpleWorkerManager(WorkerManager):
                     depots = self.bot.units(UnitTypeId.SUPPLYDEPOT) | self.bot.units(UnitTypeId.SUPPLYDEPOTLOWERED)
                     placement_positions = []
                     if building == UnitTypeId.SUPPLYDEPOT and self.bot.units(UnitTypeId.BUNKER).amount == 0:
-                        placement_positions = self.bot.main_base_ramp.corner_depots
+                        try:
+                            placement_positions = self.bot.main_base_ramp.corner_depots
+                        except ValueError:
+                            print("Couldn't place on main base ramp, placing elsewhere")
+                            pass
                         if depots:
                             placement_positions = {d for d in placement_positions if
                                                          depots.closest_distance_to(d) > 1}
                     elif building == UnitTypeId.BARRACKS and self.bot.units(UnitTypeId.BARRACKS).amount + self.bot.already_pending(UnitTypeId.BARRACKS) == 0:
-                        placement_positions = [self.bot.main_base_ramp.barracks_correct_placement]
+                        try:
+                            placement_positions = [self.bot.main_base_ramp.barracks_correct_placement]
+                        except ValueError:
+                            pass
 
                     if len(placement_positions) == 0:
                         if building == UnitTypeId.SUPPLYDEPOT:
