@@ -4,6 +4,10 @@ models/
 # Replays
 replays/
 pickled_data/
+json_data/
+options_data/
+output_prints/
+models_UMAP_PCA_Isomap/
 bayes/
 
 # Mac
