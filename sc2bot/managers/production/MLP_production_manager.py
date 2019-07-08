@@ -17,13 +17,16 @@ class MLPProductionManager(ProductionManager):
     is getting into the input for the model. It accepts also a pair of
     features.
     '''
-    def __init__(self, bot, worker_manager, building_manager, request_freq=22, reset_freq=22*10, features=[], model_name=None):
+    def __init__(self, bot, worker_manager, building_manager, request_freq=22, reset_freq=22*10, features=[], model_path=None, model_name=None, timestamp=None, comment=""):
         super().__init__(bot, worker_manager, building_manager)
 
         print("Loading the MLP Production Manager")
         self.request_freq = request_freq
         self.reset_freq = reset_freq
         self.features = features
+        self.timestamp = timestamp
+        self.comment = comment
+        self.model_path = model_path
 
         print("Loading the column data")
         self.action_dict = json.load(open("data/action_encoder_3.json"))
@@ -62,7 +65,7 @@ class MLPProductionManager(ProductionManager):
         hidden_layers = 3
         outputs = len(self.action_dict.keys())
         self.model = Net(inputs, hidden_nodes, hidden_layers, outputs)
-        self.model.load_state_dict(torch.load(f"models/{model_name}.pt", map_location='cpu'))
+        self.model.load_state_dict(torch.load(f"{model_path}", map_location='cpu'))
         self.model.eval()
         print("Model's ready")
         print("Model ready")
@@ -377,10 +380,13 @@ class MLPProductionManager(ProductionManager):
         print("--- Output ---")
         #print(out)
         out = out[0]
-        top_idx = list(reversed(np.argsort(out)[-3:]))
+        top_idx = list(reversed(np.argsort(out)[-5:]))
         top_values = [out[i] for i in top_idx]
         top_predictions = [(self.inv_action_dict[top_idx[i]], top_values[i]) for i in range(len(top_idx))]
         print(top_predictions)
+        # with open(f"output_prints/{self.timestamp}_sc2bot_{self.comment}_outputs.txt", "a+") as f:
+        #     f.write(str(top_predictions))
+        
         # TODO: Filter out unavailable and unwanted actions
         # action_idx = np.argmax(out)
         # action_name = self.inv_action_dict[action_idx]

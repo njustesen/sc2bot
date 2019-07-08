@@ -37,7 +37,7 @@ from matplotlib import mlab
 
 
 class TerranBot(sc2.BotAI):
-    def __init__(self, features, verbose=True, model_name=None):
+    def __init__(self, features, verbose=True, model_path=None, model_name=None, timestamp=None, comment=""):
         super().__init__()
         self.iteration = 0
         self.builds = {}
@@ -46,7 +46,15 @@ class TerranBot(sc2.BotAI):
         self.army_manager = AdvancedArmyManager(self)
         self.assault_manager = ValueBasedAssaultManager(self, self.army_manager, self.worker_manager)
         self.building_manager = SimpleBuildingManager(self, self.worker_manager)
-        self.production_manager = MLPProductionManager(self, self.worker_manager, self.building_manager, features=features, model_name=model_name)
+        self.production_manager = MLPProductionManager(self,
+            self.worker_manager,
+            self.building_manager,
+            features=features,
+            model_path=model_path,
+            model_name=model_name,
+            timestamp=timestamp,
+            comment=comment
+        )
         # self.production_manager = MarineProductionManager(self, self.worker_manager, self.building_manager)
         self.scouting_manager = SimpleScoutingManager(self, self.worker_manager, self.building_manager)
         self.managers = [self.scouting_manager, self.production_manager, self.building_manager, self.assault_manager, self.army_manager, self.worker_manager]
