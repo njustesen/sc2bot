@@ -3,7 +3,7 @@ models/
 
 # Replays
 replays/
-
+pickled_data/
 bayes/
 
 # Mac

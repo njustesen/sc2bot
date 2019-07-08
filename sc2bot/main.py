@@ -4,11 +4,14 @@ import math
 import sc2
 import json
 import pickle
+import os
 from sc2 import Race, Difficulty, UnitTypeId, AbilityId
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from sc2.player import Bot, Computer
 from data_utils import Option
 from bot import Hydralisk, ZergRushBot, TerranBot
+
+os.environ['SC2PATH'] = "/media/mgd/DATA/new_sc2"
 
 def run_game(features, opp, cluster_id=None, comment="", timestamp=int(time.time())):
     #return np.mean(features) - random.random()*0.1
@@ -27,7 +30,7 @@ def run_game(features, opp, cluster_id=None, comment="", timestamp=int(time.time
         elif opp == "zerg":
             opponent = Bot(Race.Zerg, ZergRushBot())
 
-        result = sc2.run_game(sc2.maps.get("(2)CatalystLE"),
+        result = sc2.run_game(sc2.maps.get("CatalystLE"),
                                 players=[Bot(Race.Terran, tbot), opponent],
                                 save_replay_as=replay_name,
                                 realtime=False)
@@ -84,8 +87,8 @@ def main(n, comment="", timestamp=int(time.time())):
                 option.n += 1
                 print(json.dumps(option.builds))
 
-            pickle.dump(options, open(f"/pickled_data/{timestamp}_options_{n}_{comment}.p", "wb"))
-            with open(f"/pickled_data/{timestamp}_options_{n}_{comment}.p", "w") as f:
+            pickle.dump(options, open(f"./pickled_data/{timestamp}_options_{n}_{comment}.p", "wb"))
+            with open(f"./pickled_data/{timestamp}_options_{n}_{comment}.p", "w") as f:
                 f.write(str([option.to_json() for option in options]))
 
     options = pickle.load(open(f"options_{n}_no_features.p", "rb"))
