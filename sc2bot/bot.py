@@ -709,7 +709,7 @@ def clusters(n):
 
 if __name__ == '__main__':
     #main()
-    #analyse(100)
+    # analyse(100)
     ucb(100, "hydra")
     #ucb(100, "zerg")
     #analyse_ucb(100, "hydra")
