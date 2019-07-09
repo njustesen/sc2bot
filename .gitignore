@@ -8,8 +8,9 @@ json_data/
 options_data/
 output_prints/
 models_UMAP_PCA_Isomap/
+builds/
 bayes/
-
+*.txt
 # Mac
 .DS_Store
 

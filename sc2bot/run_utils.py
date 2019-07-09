@@ -25,12 +25,6 @@ def run_game(features, opp, features_name, model_path, comment="", timestamp="")
         timestamp=timestamp,
         comment=comment
     )
-    # elif features_name == "UMAP":
-
-    # if cluster_id is not None:
-    #     tbot = TerranBot(features=features, verbose=False, model_name=f'cluster{cluster_id}', timestamp=timestamp, comment=comment)
-    # else:
-    #     tbot = TerranBot(features=features, verbose=False, timestamp=timestamp, comment=comment)
     try:
         if opp == "easy":
             opponent = Computer(Race.Zerg, Difficulty.Easy)
@@ -60,20 +54,22 @@ def run_game(features, opp, features_name, model_path, comment="", timestamp="")
 def feature_experiment(n, features_name, features, model_path, comment="", timestamp=int(time.time())):
     option = Option(features_name, comment, features)
     for i in range(n):
-        result, bot = run_game(option.features, "easy", features_name, model_path, comment=comment+f"_{i}_", timestamp=timestamp)
-        option.builds.append(bot.builds)
-        option.wins += 1 if result > 0 else 0
-        option.draws += 0.5 if result == 0.5 else 0
-        option.n += 1
-        # with open(f"./builds/{timestamp}_{features_name}_builds_{comment}_{i}.json") as f:
-        #     json.dump(option.builds)
-        # print(json.dumps(option.builds))
         print("-"*80)
         print("\n")
         print("NEW GAME")
         print("\n")
         print("-"*80)
+        result, bot = run_game(option.features, "easy", features_name, model_path, comment=comment+f"_{i}_", timestamp=timestamp)
+        option.builds.append(bot.builds)
+        option.wins += 1 if result > 0 else 0
+        option.draws += 0.5 if result == 0.5 else 0
+        option.n += 1
+        with open(f"./builds/{timestamp}_{features_name}_builds_{comment}_{i}.json", "w") as f:
+            json.dump(bot.builds, f)
 
+    print("-"*80)
+    print("\n\n\nFINAL RESULTS\n\n\n")
+    print("-"*80)
     with open(f"./options_data/{timestamp}_{features_name}_option_{comment}.json", "w") as f:
         json.dump(option.to_json(), f)
 
