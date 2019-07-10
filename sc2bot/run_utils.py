@@ -61,7 +61,8 @@ def feature_experiment(n, features_name, features, model_path, comment="", times
         print("-"*80)
         result, bot = run_game(option.features, "easy", features_name, model_path, comment=comment+f"_{i}_", timestamp=timestamp)
         option.builds.append(bot.builds)
-        option.enemy_builds.append(bot.max_seen_enemy_units)
+        # option.enemy_builds.append(bot.max_seen_enemy_units)
+        # option.max_allied_units.append(bot.max_allied_units)
         option.wins += 1 if result > 0 else 0
         option.draws += 0.5 if result == 0.5 else 0
         option.n += 1
@@ -71,6 +72,12 @@ def feature_experiment(n, features_name, features, model_path, comment="", times
 
         with open(f"./builds/{timestamp}_{features_name}_builds_{comment}_{i}.json", "w") as f:
             json.dump(bot.builds, f)
+        
+        with open(f"./enemy_units/{timestamp}_{features_name}_enemy_units_{comment}_{i}.json", "w") as f:
+            json.dump(bot.max_seen_enemy_units, f)
+
+        with open(f"./allied_units/{timestamp}_{features_name}_max_allied_units_{comment}_{i}.json", "w") as f:
+            json.dump(bot.max_allied_units, f)
 
     print("-"*80)
     print("\n\n\nFINAL RESULTS\n\n\n")

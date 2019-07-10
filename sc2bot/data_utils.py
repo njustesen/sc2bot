@@ -7,7 +7,8 @@ class Option:
         self.wins = 0
         self.draws = 0
         self.builds = []
-        self.enemy_builds = []
+        # self.enemy_builds = []
+        # self.max_allied_units = []
 
     def to_json(self):
         return {
@@ -17,6 +18,6 @@ class Option:
             "n": self.n,
             "wins": self.wins,
             "draws": self.draws,
-            "builds": self.builds,
-            "enemy_builds": self.enemy_builds
+            "builds": self.builds
+            # "enemy_builds": self.enemy_builds
         }

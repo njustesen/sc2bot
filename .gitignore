@@ -11,6 +11,8 @@ models_UMAP_PCA_Isomap/
 builds/
 bayes/
 model_outputs/
+allied_units/
+enemy_units/
 *.txt
 
 # Mac
