@@ -10,7 +10,9 @@ output_prints/
 models_UMAP_PCA_Isomap/
 builds/
 bayes/
+model_outputs/
 *.txt
+
 # Mac
 .DS_Store
 

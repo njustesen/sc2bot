@@ -41,6 +41,8 @@ class TerranBot(sc2.BotAI):
         super().__init__()
         self.iteration = 0
         self.builds = {}
+        self.outputs = {}
+        self.max_seen_enemy_units = {}
         self.verbose = verbose
         self.worker_manager = SimpleWorkerManager(self)
         self.army_manager = AdvancedArmyManager(self)
@@ -78,6 +80,21 @@ class TerranBot(sc2.BotAI):
         for unit in self.known_enemy_units | self.known_enemy_structures:
             self.enemy_units[unit.tag] = unit
 
+        seen_unit_names = set([])
+        for unit in self.known_enemy_units:
+            if unit.name not in seen_unit_names:
+                seen_unit_names.add(unit.name) 
+                amount = len(list(filter(
+                    lambda x: x.name == unit.name, 
+                    self.known_enemy_units)
+                ))
+                if unit.name not in self.max_seen_enemy_units:
+                    self.max_seen_enemy_units[unit.name] = amount
+                
+                self.max_seen_enemy_units[unit.name] = max(
+                    self.max_seen_enemy_units[unit.name],
+                    amount
+                )
 
         self.iteration += 1
 

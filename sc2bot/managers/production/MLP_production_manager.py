@@ -384,6 +384,10 @@ class MLPProductionManager(ProductionManager):
         top_values = [out[i] for i in top_idx]
         top_predictions = [(self.inv_action_dict[top_idx[i]], top_values[i]) for i in range(len(top_idx))]
         print(top_predictions)
+
+        self.bot.outputs[self.bot.state.observation.game_loop] = [
+            (a, float(b)) for a, b in top_predictions
+        ]
         # with open(f"output_prints/{self.timestamp}_sc2bot_{self.comment}_outputs.txt", "a+") as f:
         #     f.write(str(top_predictions))
         
