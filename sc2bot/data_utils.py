@@ -21,3 +21,9 @@ class Option:
             "builds": self.builds
             # "enemy_builds": self.enemy_builds
         }
+
+class BayesianIteration:
+    def __init__(self, Z, point, iteration):
+        self.Z = Z
+        self.point = point
+        self.iteration = iteration

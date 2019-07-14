@@ -5,11 +5,15 @@ import sc2
 import json
 import pickle
 import os
+import numpy as np
 from sc2 import Race, Difficulty, UnitTypeId, AbilityId
 from s2clientprotocol import sc2api_pb2 as sc_pb
 from sc2.player import Bot, Computer
-from data_utils import Option
+from data_utils import Option, BayesianIteration
 from bot import Hydralisk, ZergRushBot, TerranBot
+from bayes_opt import BayesianOptimization, UtilityFunction
+from bayes_opt.observer import JSONLogger
+from bayes_opt.event import Events
 
 os.environ['SC2PATH'] = "/media/mgd/DATA/new_sc2"
 
@@ -51,7 +55,16 @@ def run_game(features, opp, features_name, model_path, comment="", timestamp="")
         return 0, tbot
 
 
-def feature_experiment(n, features_name, features, model_path, comment="", timestamp=int(time.time())):
+def feature_experiment(n, features_name, cluster_key, cluster_centers_path, model_path, comment="", timestamp=int(time.time())):
+    # Loading up the cluster centers: 
+    cluster_key = str(cluster_key)
+
+    with open(cluster_centers_path) as f:
+        cluster_centers = json.load(f)[features_name]
+    
+    features = cluster_centers[cluster_key]
+    print(f"Using features {features}, from cluster {cluster_key}'s center.")
+
     option = Option(features_name, comment, features)
     for i in range(n):
         print("-"*80)
@@ -98,6 +111,76 @@ def feature_experiment(n, features_name, features, model_path, comment="", times
     for build in sorted_builds:
         if build != "SCV":
             print(f"\t{build}: {(all_builds[build] / option.n)}")
+
+
+def objective_function(x, y, iteration, features_name, model_path, comment, timestamp):
+    # I could be storing all relevant information about the bot's build here too.
+    result, _ = run_game([x, y], "easy", features_name, model_path, comment=comment+f"_Bayesian_Optimization_{iteration}_", timestamp=timestamp)
+    return result
+
+
+def get_Z(optimizer):
+    x = y = np.arange(-1.0, 1.0, 0.05)
+    X, Y = np.meshgrid(x, y)
+    # print(X)
+    Z = np.zeros_like(X)
+    for i in range(X.shape[0]):
+        for j in range(X.shape[1]):
+            Z[i,j] = optimizer._gp.sample_y(np.array([[X[i,j], Y[i,j]]]))[:, 0][0]
+    return Z
+
+
+def run_point(xy, optimizer, iteration, features_name, model_path, comment, timestamp):
+    target = objective_function(
+        xy["x"],
+        xy["y"],
+        iteration,
+        features_name,
+        model_path,
+        comment,
+        timestamp
+    )
+    optimizer.register(params=xy, target=target)
+
+    Z = get_Z(optimizer)
+
+    return BayesianIteration(Z, xy, iteration)
+
+
+def save_illustration(b_iterations):
+    """
+    TODO: Implement here a function that outputs a video
+    """
+    pass
+
+
+def bayesian_optimization_experiment(n, features_name, cluster_centers_path, model_path, comment="", timestamp=int(time.time())):
+    # Start by probing all cluster centers.
+    with open(cluster_centers_path) as f:
+        cluster_centers = json.load(f)[features_name]
+
+    optimizer = BayesianOptimization(
+        f=None,
+        pbounds={"x": (0,1), "y": (0,1)},
+    )
+
+    logger = JSONLogger(path=f"./BO_logs/{timestamp}_BO_logs_{features_name}_{comment}_.json")
+    optimizer.subscribe(Events.OPTMIZATION_STEP, logger)
+    utility = UtilityFunction(kind="ucb", kappa=2.5, xi=0.0)
+
+    b_iterations = []
+    for i, v in enumerate(cluster_centers.values()):
+        xy = {"x": v[0], "y": v[1]}
+        b_iteration = run_point(xy, optimizer, i, features_name, model_path, comment, timestamp)
+        b_iterations.append(b_iteration) 
+
+    for i in range(len(cluster_centers), n):
+        xy = optimizer.suggest(utility)
+        b_iteration = run_point(xy, optimizer, i, features_name, model_path, comment, timestamp)
+        b_iterations.append(b_iteration)
+    
+    save_illustration(b_iterations)
+
 
 def analyse(n):
     options = pickle.load(open(f"options_{n}_no_features.p", "rb"))

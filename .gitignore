@@ -13,6 +13,7 @@ bayes/
 model_outputs/
 allied_units/
 enemy_units/
+BO_logs/
 *.txt
 
 # Mac
