@@ -42,7 +42,7 @@ class TerranBot(sc2.BotAI):
         self.iteration = 0
         self.builds = {}
         self.outputs = {}
-        self.last_max_enemy_units = None
+        self.last_max_seen_enemy_units = None
         self.max_seen_enemy_units = {}
         self.last_max_allied_units = None
         self.max_allied_units = {}
@@ -83,8 +83,8 @@ class TerranBot(sc2.BotAI):
         for unit in self.known_enemy_units | self.known_enemy_structures:
             self.enemy_units[unit.tag] = unit
 
-        if self.max_seen_enemy_units:
-            enemy_units = self.max_seen_enemy_units.copy()
+        if self.last_max_seen_enemy_units:
+            enemy_units = self.last_max_seen_enemy_units.copy()
         else:
             enemy_units = {}
 
@@ -98,7 +98,9 @@ class TerranBot(sc2.BotAI):
 
             enemy_units[unit.name] = max(amount, enemy_units[unit.name])
 
-        self.max_seen_enemy_units[self.state.observation.game_loop] = enemy_units
+        if enemy_units != self.last_max_seen_enemy_units:
+            self.max_seen_enemy_units[self.state.observation.game_loop] = enemy_units
+            self.last_max_seen_enemy_units = enemy_units
 
 
         self.iteration += 1
@@ -166,7 +168,7 @@ class TerranBot(sc2.BotAI):
             self.builds[unit.name] += 1
         self.own_units[unit.tag] = unit
 
-        if self.max_allied_units:
+        if self.last_max_allied_units:
             allied_units = self.last_max_allied_units.copy()
         else:
             allied_units = {}
@@ -181,7 +183,9 @@ class TerranBot(sc2.BotAI):
 
             allied_units[unit.name] = max(amount, allied_units[unit.name])
 
-        self.max_allied_units[self.state.observation.game_loop] = allied_units
+        if allied_units != self.max_allied_units:
+            self.max_allied_units[self.state.observation.game_loop] = allied_units
+            self.last_max_allied_units = allied_units
 
         for manager in self.managers:
             await manager.on_unit_created(unit)
