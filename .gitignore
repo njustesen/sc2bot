@@ -8,6 +8,7 @@ json_data/
 options_data/
 output_prints/
 models_UMAP_PCA_Isomap/
+models_kmeans/
 builds/
 bayes/
 model_outputs/

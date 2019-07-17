@@ -12,9 +12,9 @@ from run_utils import feature_experiment, bayesian_optimization_experiment
 def main(features_name, cluster_key, cluster_centers_path, model_path, repetitions, comment):
     # [0.8493908047676086, 0.44843146204948425]
     timestamp = int(time.time())
-    # feature_experiment(repetitions, features_name, cluster_key, cluster_centers_path, model_path, comment=comment, timestamp=timestamp)
-    bayesian_optimization_experiment(21, features_name, cluster_centers_path, model_path, comment, timestamp)
+    feature_experiment(repetitions, features_name, cluster_key, cluster_centers_path, model_path, comment=comment, timestamp=timestamp)
+    # bayesian_optimization_experiment(repetitions, features_name, cluster_centers_path, model_path, comment, timestamp)
 
 
 if __name__ == '__main__':
-    main()
+    main() #pylint: disable=no-value-for-parameter

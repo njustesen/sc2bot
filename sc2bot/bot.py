@@ -183,7 +183,7 @@ class TerranBot(sc2.BotAI):
 
             allied_units[unit.name] = max(amount, allied_units[unit.name])
 
-        if allied_units != self.max_allied_units:
+        if allied_units != self.last_max_allied_units:
             self.max_allied_units[self.state.observation.game_loop] = allied_units
             self.last_max_allied_units = allied_units
 

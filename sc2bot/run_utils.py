@@ -14,6 +14,7 @@ from bot import Hydralisk, ZergRushBot, TerranBot
 from bayes_opt import BayesianOptimization, UtilityFunction
 from bayes_opt.observer import JSONLogger
 from bayes_opt.event import Events
+import matplotlib.pyplot as plt
 
 os.environ['SC2PATH'] = "/media/mgd/DATA/new_sc2"
 
@@ -112,6 +113,21 @@ def feature_experiment(n, features_name, cluster_key, cluster_centers_path, mode
         if build != "SCV":
             print(f"\t{build}: {(all_builds[build] / option.n)}")
 
+class BasicObserver:
+    def update(self, event, instance):
+        """Does whatever you want with the event and `BayesianOptimization` instance."""
+        # print("Event `{}` was observed".format(event))
+        Z = get_Z(instance)
+        fig = plt.figure()
+        im = plt.imshow(Z)
+        plt.tick_params(bottom=False, left=False, labelbottom=False, labelleft=False)
+        # plt.title(f"Mean Sample for {features_name}")
+        fig.colorbar(im)
+        plt.show()
+        # plt.savefig(f"{timestamp}_mean_sample_{features_name}_{comment}_{iteration}.pdf", format="pdf")
+        plt.close()
+
+
 
 def objective_function(x, y, iteration, features_name, model_path, comment, timestamp):
     # I could be storing all relevant information about the bot's build here too.
@@ -127,10 +143,11 @@ def get_Z(optimizer):
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
             Z[i,j] = optimizer._gp.sample_y(np.array([[X[i,j], Y[i,j]]]))[:, 0][0]
+    print(Z)
     return Z
 
 
-def run_point(xy, optimizer, iteration, features_name, model_path, comment, timestamp):
+def run_point(xy, optimizer, iteration, features_name, bayes_log, model_path, comment, timestamp):
     target = objective_function(
         xy["x"],
         xy["y"],
@@ -141,45 +158,79 @@ def run_point(xy, optimizer, iteration, features_name, model_path, comment, time
         timestamp
     )
     optimizer.register(params=xy, target=target)
+    bayes_log[iteration] = {
+        "parameters": xy,
+        "target": target
+    }
+
+    with open(f"./BO_logs/{timestamp}_BO_logs_{features_name}_{comment}_.json", "w") as f:
+        json.dump(bayes_log, f)
 
     Z = get_Z(optimizer)
+    b_iteration = BayesianIteration(Z, xy, iteration)
+    save_illustration(b_iteration, iteration, features_name, comment, timestamp)
 
     return BayesianIteration(Z, xy, iteration)
 
 
-def save_illustration(b_iterations):
+def save_illustration(b_iteration, iteration, features_name, comment, timestamp):
     """
     TODO: Implement here a function that outputs a video
-    """
-    pass
 
+    TODO: Add colorbar and a point for the b_iteration.xy
+    """
+    fig = plt.figure()
+    # im = plt.imshow(b_iteration.Z, vmin=0, vmax=1)
+    im = plt.imshow(b_iteration.Z)
+    plt.tick_params(bottom=False, left=False, labelbottom=False, labelleft=False)
+    plt.title(f"Mean Sample for {features_name}")
+    fig.colorbar(im)
+    plt.savefig(f"{timestamp}_mean_sample_{features_name}_{comment}_{iteration}.pdf", format="pdf")
+    plt.close()
 
 def bayesian_optimization_experiment(n, features_name, cluster_centers_path, model_path, comment="", timestamp=int(time.time())):
-    # Start by probing all cluster centers.
+    basic_observer = BasicObserver()
     with open(cluster_centers_path) as f:
         cluster_centers = json.load(f)[features_name]
 
+    def __inner_obj_function(x, y):
+        return objective_function(x, y, '', features_name, model_path, comment=comment+"_BO_", timestamp=timestamp)
+
+
     optimizer = BayesianOptimization(
-        f=None,
+        f=__inner_obj_function,
         pbounds={"x": (0,1), "y": (0,1)},
     )
 
-    logger = JSONLogger(path=f"./BO_logs/{timestamp}_BO_logs_{features_name}_{comment}_.json")
-    optimizer.subscribe(Events.OPTMIZATION_STEP, logger)
-    utility = UtilityFunction(kind="ucb", kappa=2.5, xi=0.0)
+    # logger = JSONLogger(path=f"./BO_logs/{timestamp}_BO_logs_{features_name}_{comment}_.json")
+    # optimizer.subscribe(Events.OPTMIZATION_STEP, logger)
+    optimizer.subscribe(
+        event=Events.OPTMIZATION_STEP,
+        subscriber=basic_observer,
+        callback=None, # Will use the `update` method as callback
+    )
 
-    b_iterations = []
-    for i, v in enumerate(cluster_centers.values()):
-        xy = {"x": v[0], "y": v[1]}
-        b_iteration = run_point(xy, optimizer, i, features_name, model_path, comment, timestamp)
-        b_iterations.append(b_iteration) 
+    # utility = UtilityFunction(kind="ucb", kappa=2.5, xi=0.0)
 
-    for i in range(len(cluster_centers), n):
-        xy = optimizer.suggest(utility)
-        b_iteration = run_point(xy, optimizer, i, features_name, model_path, comment, timestamp)
-        b_iterations.append(b_iteration)
+    # bayes_log = {}
+    # b_iterations = []
+    # for i, v in enumerate(list(cluster_centers.values())[:2]):
+    #     if i + 1 > n:
+    #         break
+    #     xy = {"x": v[0], "y": v[1]}
+    #     b_iteration = run_point(xy, optimizer, i, features_name, bayes_log, model_path, comment, timestamp)
+    #     b_iterations.append(b_iteration) 
+
+    # final_i = i
+    # for i in range(final_i + 1, n):
+    #     xy = optimizer.suggest(utility)
+    #     b_iteration = run_point(xy, optimizer, i, features_name, bayes_log, model_path, comment, timestamp)
+    #     b_iterations.append(b_iteration)
+
+    for v in list(cluster_centers.values())[:2]:
+        optimizer.probe(params={"x": v[0], "y": v[1]})
     
-    save_illustration(b_iterations)
+    optimizer.maximize(init_points=0, n_iter=n)
 
 
 def analyse(n):
