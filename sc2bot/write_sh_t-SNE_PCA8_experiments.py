@@ -62,12 +62,12 @@ def write_for_dict(dict_, feature, allied_or_enemy):
 
 def get_PCA8_command():
     string = ""
-    for k in range(20):
-        string += f"python main.py --features_name=PCA8 --cluster_key={k} --cluster_centers_path=\"/home/mgd/Projects/sc2bot/sc2bot/data/cluster_centers_t-SNE_PCA8_allied_kmeans_1563641162.json\" --model_path=/home/mgd/Projects/sc2bot/sc2bot/models_kmeans/model_allied_PCA8_kmeans_state_dict.pt --repetitions=20 --comment=allied_kmeans_experiment_cluster_{k}_nounit" + "\n"
+    for k in [5, 7, 10, 4]:
+        string += f"python main.py --features_name=PCA8 --cluster_key={k} --cluster_centers_path=\"/home/mgd/Projects/sc2bot/sc2bot/data/cluster_centers_t-SNE_PCA8_allied_kmeans_1563641162.json\" --model_path=/home/mgd/Projects/sc2bot/sc2bot/models_kmeans/model_allied_PCA8_kmeans_state_dict.pt --repetitions=80 --comment=allied_kmeans_experiment_cluster_{k}_nounit" + "\n"
     return string
 
 string = ""
-string += write_for_dict(allied_t_SNE, "t-SNE", "allied")
+# string += write_for_dict(allied_t_SNE, "t-SNE", "allied")
 string += get_PCA8_command()
 # string += write_for_dict(allied_Isomap, "Isomap", "allied")
 # string += write_for_dict(allied_UMAP, "UMAP", "allied")
