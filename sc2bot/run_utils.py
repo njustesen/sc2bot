@@ -15,6 +15,7 @@ from bayes_opt import BayesianOptimization, UtilityFunction
 from bayes_opt.observer import JSONLogger
 from bayes_opt.event import Events
 import matplotlib.pyplot as plt
+from operator import itemgetter
 
 os.environ['SC2PATH'] = "/media/mgd/DATA/new_sc2"
 
@@ -112,6 +113,117 @@ def feature_experiment(n, features_name, cluster_key, cluster_centers_path, mode
     for build in sorted_builds:
         if build != "SCV":
             print(f"\t{build}: {(all_builds[build] / option.n)}")
+
+
+class UCB1():
+    def __init__(self):
+        return
+
+    def initialize(self, n_arms):
+        self.counts = [0 for col in range(n_arms)]
+        self.values = [0.0 for col in range(n_arms)]
+        return
+
+    def select_arm(self):
+        n_arms = len(self.counts)
+        for arm in range(n_arms):
+            if self.counts[arm] == 0:
+                return arm
+
+        ucb_values = [0.0 for arm in range(n_arms)]
+        total_counts = sum(self.counts)
+        for arm in range(n_arms):
+            bonus = math.sqrt((2 * math.log(total_counts)) / float(self.counts[arm]))
+            ucb_values[arm] = self.values[arm] + bonus
+        return ind_max(ucb_values)
+
+    def update(self, chosen_arm, reward):
+        self.counts[chosen_arm] = self.counts[chosen_arm] + 1
+        n = self.counts[chosen_arm]
+
+        value = self.values[chosen_arm]
+        new_value = ((n - 1) / float(n)) * value + (1 / float(n)) * reward
+        self.values[chosen_arm] = new_value
+        return
+
+
+class UCB1_M:
+    def __init__(self, cluster_centers):
+        self.cluster_centers = cluster_centers
+        self.values = {k: [] for k in self.cluster_centers}
+    
+    def select_arm(self):
+        for k, v in self.values.items():
+            if v == []:
+                return k
+
+        # math.sqrt((2 * math.log(total_counts)) / float(self.counts[arm]))
+        log_total_counts = np.log(sum([len(v) for k, v in self.values.items()]))
+        criteria = {k: np.mean(v) + np.sqrt(2*log_total_counts / len(v)) for k, v in self.values}
+        sorted_criteria = sorted(criteria.items(), key=itemgetter(1), reverse=True)
+        arm, _ = sorted_criteria[0]
+        return arm
+
+    def update(self, arm, reward):
+        self.values[arm].append(reward)
+    
+    def save_results(self, path):
+        with open(path, "w") as f:
+            json.dump(self.values, f)
+
+def ucb_experiment(iterations, features_name, cluster_centers_path, model_path, comment="", timestamp=int(time.time())):
+    with open(cluster_centers_path) as f:
+        cluster_centers = json.load(f)[features_name]
+    
+    ucb1 = UCB1_M(cluster_centers)
+
+    for i in range(iterations):
+        arm = ucb1.select_arm()
+        features = ucb1.cluster_centers[arm]
+        print("-"*80)
+        print("\n")
+        print("NEW GAME")
+        print(f"Using features {features}, from cluster {arm}'s center.")
+        print("\n")
+        print("-"*80)
+        result, bot = run_game(features, "easy", features_name, model_path, comment=comment+f"_{i}_", timestamp=timestamp)
+
+        ucb1.update(arm, result)
+
+        with open(f"./model_outputs/{timestamp}_{features_name}_outputs_{comment}_{i}.json", "w") as f:
+            json.dump(bot.outputs, f)
+
+        with open(f"./builds/{timestamp}_{features_name}_builds_{comment}_{i}.json", "w") as f:
+            json.dump(bot.builds, f)
+        
+        with open(f"./enemy_units/{timestamp}_{features_name}_enemy_units_{comment}_{i}.json", "w") as f:
+            json.dump(bot.max_seen_enemy_units, f)
+
+        with open(f"./allied_units/{timestamp}_{features_name}_max_allied_units_{comment}_{i}.json", "w") as f:
+            json.dump(bot.max_allied_units, f)
+
+    print("-"*80)
+    print("\n\n\nFINAL RESULTS\n\n\n")
+    print("-"*80)
+
+    ucb1.save_results(f"./ucb1_experiment_results/{timestamp}_{features_name}_option_{comment}.json")
+    print(ucb1.values)
+    # with open(f"./options_data/{timestamp}_{features_name}_option_{comment}.json", "w") as f:
+    #     json.dump(option.to_json(), f)
+
+    # print("Name", option.name)
+    # print("Wins", option.wins)
+    # all_builds = {}
+    # for b_dict in option.builds:
+    #     for build, c in b_dict.items():
+    #         if build not in all_builds:
+    #             all_builds[build] = 0
+    #         all_builds[build] += c
+
+    # sorted_builds = reversed(sorted(all_builds, key=all_builds.get))
+    # for build in sorted_builds:
+    #     if build != "SCV":
+    #         print(f"\t{build}: {(all_builds[build] / option.n)}")
 
 class BasicObserver:
     def update(self, event, instance):
@@ -314,38 +426,6 @@ def analyse_ucb(n, name):
 def ind_max(x):
     m = max(x)
     return x.index(m)
-
-
-class UCB1():
-    def __init__(self):
-        return
-
-    def initialize(self, n_arms):
-        self.counts = [0 for col in range(n_arms)]
-        self.values = [0.0 for col in range(n_arms)]
-        return
-
-    def select_arm(self):
-        n_arms = len(self.counts)
-        for arm in range(n_arms):
-            if self.counts[arm] == 0:
-                return arm
-
-        ucb_values = [0.0 for arm in range(n_arms)]
-        total_counts = sum(self.counts)
-        for arm in range(n_arms):
-            bonus = math.sqrt((2 * math.log(total_counts)) / float(self.counts[arm]))
-            ucb_values[arm] = self.values[arm] + bonus
-        return ind_max(ucb_values)
-
-    def update(self, chosen_arm, reward):
-        self.counts[chosen_arm] = self.counts[chosen_arm] + 1
-        n = self.counts[chosen_arm]
-
-        value = self.values[chosen_arm]
-        new_value = ((n - 1) / float(n)) * value + (1 / float(n)) * reward
-        self.values[chosen_arm] = new_value
-        return
 
 def ucb(n, opp):
     # Cluster 10 units
